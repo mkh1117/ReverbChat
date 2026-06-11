@@ -15,20 +15,16 @@
 
     <!-- لیست چت‌ها -->
     <div v-if="!searchOpen" class="mt-6 grid gap-4">
-        <a href="">
-      <div v-for="(chat, index) in chats" :key="index"
-        class="bg-white p-4 rounded-xl shadow hover:shadow-md transition">
-        <div class="flex items-center gap-4">
-          <img :src="chat.avatar" class="w-10 h-10 rounded-full border-2"
-            :class="chat.online ? 'border-green-500' : 'border-gray-300'" />
-          <div>
-            <p class="font-semibold text-gray-800">{{ chat.username }}</p>
-            <p class="text-sm text-gray-500">{{ chat.lastMessage }}</p>
-          </div>
+    <a :href="`/chat/${room.id}`" v-for="room in rooms" :key="room.id">
+        <div class="bg-white p-4 rounded-xl shadow hover:shadow-md transition">
+            <div class="flex items-center gap-4">
+                <div>
+                    <p class="font-semibold text-gray-800">{{ room.name }}</p>
+                </div>
+            </div>
         </div>
-      </div>
-      </a>
-    </div>
+    </a>
+</div>
 
     <!-- حالت سرچ تمام‌صفحه -->
     <transition name="fade">
@@ -50,20 +46,17 @@
 
         <!-- نتایج سرچ -->
         <div v-if="search.length > 0" class="overflow-auto space-y-4">
-          <div v-for="(chat, index) in filteredChats" :key="index"
-            class="flex items-center justify-between p-4 rounded-lg shadow border hover:bg-gray-50 cursor-pointer">
+        <a :href="`/chat/${room.id}`" v-for="room in filteredRooms" :key="room.id" class="flex items-center justify-between p-4 rounded-lg shadow border hover:bg-gray-50 cursor-pointer">
+        <div class="bg-white p-4 rounded-xl shadow hover:shadow-md transition">
             <div class="flex items-center gap-4">
-              <img :src="chat.avatar" class="w-10 h-10 rounded-full border-2"
-                :class="chat.online ? 'border-green-500' : 'border-gray-300'" />
-              <div>
-                <p class="font-semibold">{{ chat.username }}</p>
-                <p class="text-sm text-gray-500">{{ chat.lastMessage }}</p>
-              </div>
+                <div>
+                    <p class="font-semibold text-gray-800">{{ room.name }}</p>
+                </div>
             </div>
-            <span class="text-xs text-gray-400">{{ chat.time }}</span>
-          </div>
-          <p v-if="filteredChats.length === 0" class="text-center text-gray-400">هیچی پیدا نشد 😕</p>
         </div>
+    </a>
+    <p v-if="filteredRooms.length === 0" class="text-center text-gray-400">هیچی پیدا نشد 😕</p>
+</div>
       </div>
     </transition>
   </div>
@@ -71,6 +64,10 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+
+const props = defineProps({
+    rooms: Array  // همون چیزی که از Controller فرستادی
+})
 
 const searchOpen = ref(false)
 const search = ref('')
@@ -80,34 +77,10 @@ const toggleSearch = () => {
   if (!searchOpen.value) search.value = ''
 }
 
-const chats = ref([
-  {
-    username: 'علی رضایی',
-    lastMessage: 'سلام، وقت بخیر...',
-    time: '14:32',
-    online: true,
-    avatar: 'https://i.pravatar.cc/150?img=5',
-  },
-  {
-    username: 'مریم قاسمی',
-    lastMessage: 'منتظرم خبری بدی...',
-    time: 'دیروز',
-    online: false,
-    avatar: 'https://i.pravatar.cc/150?img=3',
-  },
-  {
-    username: 'فاطمه محمدی',
-    lastMessage: 'اوکی! تا بعد میبینمت 👋',
-    time: '13:15',
-    online: false,
-    avatar: 'https://i.pravatar.cc/150?img=12',
-  },
-])
-
-const filteredChats = computed(() =>
-  chats.value.filter(chat =>
-    chat.username.includes(search.value) ||
-    chat.lastMessage.includes(search.value)
+// دیگه نیازی به chats ثابت نیست، از props میخونیم
+const filteredRooms = computed(() =>
+  props.rooms.filter(room =>
+    room.name.includes(search.value)
   )
 )
 </script>

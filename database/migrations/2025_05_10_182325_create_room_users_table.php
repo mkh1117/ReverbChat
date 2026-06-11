@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('room_users', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('room_id');
+            $table->uuid('room_id');
             $table->unsignedBigInteger('user_id');
             $table->timestamps();
 

@@ -1,82 +1,224 @@
 <template>
-<div class="bg-stone-300 h-screen flex flex-col">
-  <header class="bg-blue-600 text-white p-4 text-lg font-bold">
-    {{ user.name }}
-  </header>
+  <div class="h-screen flex flex-col bg-slate-100 relative" @click="closeAllMenus">
 
-  <!-- Chat Messages -->
-  <div id="chat-box" class="flex-1 overflow-y-auto p-4 space-y-4 ">
-    <div>
-    </div>
-    <!-- Other user's message -->
-    <!-- <div class="flex items-start flex-col">
-      <div class="bg-white p-3  rounded-xl shadow max-w-xs mt-4" v-for="m in massages">
-        {{ m.message }}
+    <!-- هدر چت -->
+    <header class="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 shadow-sm z-10">
+      <!-- دکمه بازگشت -->
+      <!-- دکمه بازگشت به صورت لینک مستقیم داخلی -->
+        <a :href="route('dashboard')"
+            class="w-9 h-9 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-all">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </a>
+
+      <div class="flex flex-col flex-1">
+        <h2 class="font-bold text-gray-800 text-base leading-tight">{{ chat_name }}</h2>
+        <span class="text-xs font-medium mt-0.5" :class="room.type === 'channel' || room.type === 'group' ? 'text-gray-400' : 'text-green-500'">
+          {{ room.type === 'channel' ? 'کانال' : room.type === 'group' ? 'گروه' : 'آنلاین' }}
+        </span>
       </div>
-    </div> -->
+    </header>
 
-    <!-- Current user's message -->
-    <div :class="['flex' ,'items-start' ,'space-x-2',{'justify-end':m.user=='sender'} ]"  v-for="m in massages " >
-      <div  :class="[ 'p-3', 'rounded-xl' ,'shadow' ,'max-w-xs' ,{'bg-blue-500 text-white':m.user=='sender','bg-white':m.user=='resever'}]">
-        {{ m.message }}
+    <!-- باکس پیام‌ها -->
+    <div ref="chatBox" class="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth">
+      <div
+        v-for="(m, index) in messages"
+        :key="m.id || index"
+        class="flex flex-col w-full relative"
+        :class="m.user === 'sender' ? 'items-left text-left' : 'items-right text-right'"
+      >
+        <!-- حباب پیام همراه با منوی کلیک -->
+        <div class="relative group max-w-xs md:max-w-md" :class="m.user === 'sender' ? 'self-end' : 'self-start'">
+
+          <div
+            @click.stop="toggleMessageMenu(index)"
+            class="flex flex-col rounded-2xl shadow-sm text-sm leading-relaxed cursor-pointer select-none active:opacity-90 transition-all overflow-hidden"
+            :class="[
+              // استایل بر اساس فرستنده یا گیرنده بودن
+              m.user === 'sender'
+                ? 'bg-blue-600 text-white rounded-bl-none self-end'
+                : 'bg-white text-gray-800 rounded-br-none border border-gray-100 self-start'
+            ]"
+          >
+            <!-- نمایش پیام ریپلای شده (داخل حباب پیام برای هم‌اندازه شدن کامل) -->
+            <div
+              v-if="m.reply_to"
+              class="text-xs px-3 py-1.5 border-r-4 mt-2 mx-2 rounded flex flex-col text-right"
+              :class="m.user === 'sender'
+                ? 'bg-blue-700/40 border-white text-blue-100'
+                : 'bg-gray-100 border-blue-500 text-gray-500'"
+            >
+              <span class="font-bold text-[10px]" :class="m.user === 'sender' ? 'text-white' : 'text-blue-600'">پاسخ به:</span>
+              <span class="truncate mt-0.5">{{ truncateText(m.reply_to.message) }}</span>
+            </div>
+
+            <!-- متن اصلی پیام -->
+            <div class="p-3 whitespace-pre-wrap text-right">
+              {{ m.message }}
+            </div>
+          </div>
+
+          <!-- منوی عملیات پیام (ریپلای / حذف) - باز شدن به سمت پایین -->
+          <div v-if="activeMenuIndex === index"
+            class="absolute top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl py-1 z-30 min-w-[110px]"
+            :class="m.user === 'sender' ? 'left-0' : 'right-0'"
+          >
+            <button @click="startReply(m)" class="w-full text-right px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+              <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+              پاسخ دادن
+            </button>
+            <button v-if="m.user === 'sender'" @click="deleteMessage(m, index)" class="w-full text-right px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2">
+              <svg class="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              حذف پیام
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
 
-    <!-- More messages can be appended dynamically here -->
+    <!-- نوار پایین (ورودی متن + وضعیت ریپلای) -->
+    <div class="p-3 bg-white border-t border-gray-200 flex flex-col gap-2 z-10">
+
+      <!-- باکس پیش‌نمایش ریپلای (در صورت فعال بودن) -->
+      <div v-if="replyingTo" class="flex items-center justify-between bg-blue-50 border-r-4 border-blue-500 px-3 py-2 rounded-lg w-full text-xs animate-fade-in">
+        <div class="flex flex-col text-right overflow-hidden">
+          <span class="font-bold text-blue-600">پاسخ به پیام</span>
+          <span class="text-gray-500 truncate mt-0.5">{{ replyingTo.message }}</span>
+        </div>
+        <button @click="cancelReply" class="text-gray-400 hover:text-gray-600 p-1">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- فیلد اصلی ارسال پیام -->
+      <div class="flex items-center gap-2">
+        <button
+          @click="send"
+          :disabled="!newMessage.trim()"
+          class="bg-blue-600 text-white rotate-90 p-3 rounded-2xl hover:bg-blue-700 active:scale-95 disabled:opacity-40 disabled:scale-100 transition-all flex items-center justify-center shadow-md shadow-blue-500/20"
+        >
+          <svg class="w-5 h-5 transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" stroke-width="2" />
+          </svg>
+        </button>
+        <div class="flex-1 relative flex items-center" dir="rtl">
+          <input
+            type="text"
+            v-model="newMessage"
+            @keyup.enter="send"
+            placeholder="پیام خود را بنویسید..."
+            class="w-full bg-gray-50 text-sm text-gray-800 border-0 rounded-2xl px-4 py-3 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-gray-400"
+          >
+        </div>
+      </div>
+    </div>
 
   </div>
-
-  <!-- Message Input -->
-  <div class="p-4 bg-white border-t flex items-center space-x-2">
-    <input type="text" v-model="message" placeholder="پیام خود را بنویسید..." class="flex-1 border rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" >
-    <button @click="send" class="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700">
-      ارسال
-    </button>
-  </div>
-</div>
 </template>
 
 <script setup>
-defineProps({
-    name:String,
-    id:Number,
-    room_id:Number,
-    user:Object
+import { ref, onMounted, nextTick } from 'vue'
+import axios from 'axios'
+import '../echo'
+
+const props = defineProps({
+    user:      Object,
+    room:      Object,
+    chat_name: String,
+})
+
+defineEmits(['back'])
+
+const newMessage = ref('')
+const messages = ref([])
+const chatBox = ref(null)
+
+const activeMenuIndex = ref(null)
+const replyingTo = ref(null)
+
+const scrollToBottom = async () => {
+    await nextTick()
+    if (chatBox.value) {
+        chatBox.value.scrollTop = chatBox.value.scrollHeight
+    }
+}
+
+const toggleMessageMenu = (index) => {
+  activeMenuIndex.value = activeMenuIndex.value === index ? null : index
+}
+
+const closeAllMenus = () => {
+  activeMenuIndex.value = null
+}
+
+const startReply = (message) => {
+  replyingTo.value = message
+  activeMenuIndex.value = null
+}
+
+const cancelReply = () => {
+  replyingTo.value = null
+}
+
+const truncateText = (text) => {
+  return text.length > 30 ? text.substring(0, 30) + '...' : text
+}
+
+const deleteMessage = async (message, index) => {
+  activeMenuIndex.value = null
+  messages.value.splice(index, 1)
+
+  try {
+    if (message.id) {
+      await axios.delete(`/chat/messages/${message.id}`)
+    }
+  } catch (e) {
+    console.error('خطا در حذف پیام:', e)
+  }
+}
+
+const send = async () => {
+    if (!newMessage.value.trim()) return
+
+    const text = newMessage.value
+    const replyPayload = replyingTo.value ? { ...replyingTo.value } : null
+
+    newMessage.value = ''
+    replyingTo.value = null
+
+    messages.value.push({
+      id: Date.now(),
+      message: text,
+      user: 'sender',
+      reply_to: replyPayload
+    })
+
+    scrollToBottom()
+
+    try {
+        axios.defaults.headers.common["X-Socket-Id"] = Echo.socketId()
+        await axios.post(`/chat/${props.room.id}/messages`, {
+            message: text,
+            reply_to_id: replyPayload ? replyPayload.id : null
+        })
+    } catch(e) {
+        console.error('خطا در ارسال:', e)
+    }
+}
+
+onMounted(() => {
+    scrollToBottom()
+
+    Echo.private('test.' + props.room.id).listen('TestEvent', (e) => {
+        messages.value.push({
+          id: e.id,
+          message: e.message,
+          user: 'receiver',
+          reply_to: e.reply_to
+        })
+        scrollToBottom()
+    })
 })
 </script>
-<script>
-import axios from 'axios';
-import '../echo';
-export default {
-    name: "App",
-    data() {
-        return {
-            messager:'',
-            massages:[],
-            test2:''
-        }
-    },
-    methods: {
-        send(){
-            axios.defaults.headers.common["X-Socket-Id"]= Echo.socketId();
-            axios.post('/testreverb',{message:this.message,room_id:this.room_id})
-                .catch(error => {
-                    console.error("خطا در دریافت داده‌ها:", error);
-                });
-            this.massages.push({message:this.message,user:'sender'});
-            this.message=''
-        }
-    },
-    mounted() {
-        Echo.private('test.'+this.room_id).listen('TestEvent', (e) => {
-        this.massages.push({message:e.message,user:'resever'});
-    });
-    },
-}
-</script>
-
-<style scoped>
-h1 {
-    color: green;
-}
-</style>

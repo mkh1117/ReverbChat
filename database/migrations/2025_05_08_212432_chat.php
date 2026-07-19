@@ -18,9 +18,8 @@ return new class extends Migration
             $table->text('message');
             $table->boolean('is_read')->default(false);
             $table->timestamps();
-
             $table->foreign('room_id')->references('id')->on('rooms');
-             $table->foreign('sender_id')->references('id')->on('users')->onDelete('set null');
+            $table->foreign('sender_id')->references('id')->on('users')->onDelete('set null');
         });
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\chat;
 use App\Models\Room;
 use App\Models\room_user;
 use App\Models\Contact;
@@ -34,13 +35,15 @@ public function show($room_id)
     );
 
     $room=Room::where('id',$room_id)->firstOrFail();
+    $chats=chat::select('sender_id','message','is_read','created_at')->where('room_id',$room_id)->orderBy('created_at', 'asc')->get();
 
     $chatName = $this->resolveChatName($room, $id);
 
-    return Inertia::render('test', [
+    return Inertia::render('Room', [
         'user'      => Auth::user(),
         'room'      => $room,
         'chat_name' => $chatName,
+        'chats'     => $chats
     ]);
 }
 

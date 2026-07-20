@@ -123,10 +123,12 @@ import { ref, onMounted, nextTick } from 'vue'
 import axios from 'axios'
 import '../echo'
 
+// ۱. متغیر chats به پراپس اضافه شد
 const props = defineProps({
     user:      Object,
     room:      Object,
     chat_name: String,
+    chats:     Array, // داده‌های اولیه ارسالی از لاراول
 })
 
 defineEmits(['back'])
@@ -143,6 +145,16 @@ const scrollToBottom = async () => {
     if (chatBox.value) {
         chatBox.value.scrollTop = chatBox.value.scrollHeight
     }
+}
+
+// ۲. تبدیل داده‌های ارسالی اینرشیا به ساختار کامپوننت چت
+const initMessages = () => {
+    messages.value = props.chats.map(msg => ({
+        id: msg.id,
+        message: msg.message,
+        user: msg.sender_id === props.user.id ? 'sender' : 'receiver',
+        reply_to: msg.reply_to // داده‌های ریلیشن ریپلای
+    }))
 }
 
 const toggleMessageMenu = (index) => {
@@ -163,6 +175,7 @@ const cancelReply = () => {
 }
 
 const truncateText = (text) => {
+  if (!text) return ''
   return text.length > 30 ? text.substring(0, 30) + '...' : text
 }
 
@@ -209,13 +222,16 @@ const send = async () => {
 }
 
 onMounted(() => {
+    // ۳. مقداردهی اولیه پیام‌ها بدون نیاز به درخواست ریکوئست مجزا
+    initMessages()
     scrollToBottom()
 
+    // گوش دادن به کانال ری‌یل تایم
     Echo.private('test.' + props.room.id).listen('TestEvent', (e) => {
         messages.value.push({
           id: e.id,
           message: e.message,
-          user: 'receiver',
+          user: e.sender_id === props.user.id ? 'sender' : 'receiver',
           reply_to: e.reply_to
         })
         scrollToBottom()

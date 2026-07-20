@@ -31,83 +31,110 @@ const submit = () => {
 
 <template>
     <GuestLayout>
-        <Head title="ورود به حساب کاربری" />
+        <Head title="ورود به سیستم" />
 
-        <div v-if="status" class="mb-4 text-sm font-medium text-green-600">
-            {{ status }}
-        </div>
-
-        <form @submit.prevent="submit" dir="rtl">
-            <!-- نام کاربری -->
-            <div>
-                <InputLabel for="username" value="نام کاربری" />
-
-                <TextInput
-                    id="username"
-                    type="text"
-                    class="mt-1 block w-full text-right"
-                    v-model="form.username"
-                    required
-                    autofocus
-                    autocomplete="username"
-                />
-
-                <InputError class="mt-2 text-right" :message="form.errors.username" />
+        <div class="w-full max-w-md mx-auto" dir="rtl">
+            <!-- هدر فرم لاگین -->
+            <div class="text-center mb-8">
+                <h2 class="text-2xl font-black text-gray-800 dark:text-white tracking-tight">خوش آمدید</h2>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">جهت دسترسی به حساب خود اطلاعات زیر را وارد کنید</p>
             </div>
 
-            <!-- رمز عبور -->
-            <div class="mt-4">
-                <InputLabel for="password" value="رمز عبور" />
-
-                <TextInput
-                    id="password"
-                    type="password"
-                    class="mt-1 block w-full text-right"
-                    v-model="form.password"
-                    required
-                    autocomplete="current-password"
-                />
-
-                <InputError class="mt-2 text-right" :message="form.errors.password" />
+            <div v-if="status" class="mb-4 p-3 bg-green-50 dark:bg-green-900/20 text-sm font-medium text-green-600 rounded-xl text-right">
+                {{ status }}
             </div>
 
-            <!-- مرا به خاطر بسپار -->
-            <div class="mt-4 block text-right">
-                <label class="flex items-center justify-start gap-2 cursor-pointer select-none">
-                    <Checkbox name="remember" v-model:checked="form.remember" />
-                    <span class="text-sm text-gray-600 dark:text-gray-400">مرا به خاطر بسپار</span>
-                </label>
-            </div>
+            <form @submit.prevent="submit" class="space-y-5">
+                <!-- فیلد نام کاربری -->
+                <div class="space-y-1.5">
+                    <InputLabel for="username" value="نام کاربری" class="text-xs font-semibold text-gray-600 dark:text-gray-400" />
 
-            <!-- بخش عملیات و دکمه‌ها -->
-            <div class="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <Link
-                        v-if="canResetPassword"
-                        :href="route('password.request')"
-                        class="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-gray-400 dark:hover:text-gray-100"
-                    >
-                        رمز عبور خود را فراموش کرده‌اید؟
-                    </Link>
+                    <div class="relative flex items-center">
+                        <span class="absolute right-4 text-gray-400">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                        </span>
+                        <TextInput
+                            id="username"
+                            type="text"
+                            class="w-full bg-gray-50 dark:bg-gray-900/50 text-sm border-gray-200/80 dark:border-gray-800 rounded-2xl pr-11 pl-4 py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-right placeholder:text-gray-400"
+                            v-model="form.username"
+                            required
+                            autofocus
+                            placeholder="نام کاربری خود را وارد کنید"
+                            autocomplete="username"
+                        />
+                    </div>
+                    <InputError class="mt-1 text-xs text-right" :message="form.errors.username" />
                 </div>
 
-                <div class="flex items-center justify-end gap-3">
-                    <!-- لینک ثبت نام با ظاهر هماهنگ -->
-                    <Link
-                        :href="route('register')"
-                        class="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none dark:text-gray-400 dark:hover:text-gray-100"
-                    >
-                        ثبت نام
-                    </Link>
+                <!-- فیلد رمز عبور -->
+                <div class="space-y-1.5">
+                    <div class="flex items-center justify-between">
+                        <InputLabel for="password" value="رمز عبور" class="text-xs font-semibold text-gray-600 dark:text-gray-400" />
 
+                        <Link
+                            v-if="canResetPassword"
+                            :href="route('password.request')"
+                            class="text-xs text-blue-600 hover:text-blue-700 hover:underline transition-all"
+                        >
+                            فراموشی رمز عبور؟
+                        </Link>
+                    </div>
+
+                    <div class="relative flex items-center">
+                        <span class="absolute right-4 text-gray-400">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                        </span>
+                        <TextInput
+                            id="password"
+                            type="password"
+                            class="w-full bg-gray-50 dark:bg-gray-900/50 text-sm border-gray-200/80 dark:border-gray-800 rounded-2xl pr-11 pl-4 py-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-right placeholder:text-gray-400"
+                            v-model="form.password"
+                            required
+                            placeholder="••••••••"
+                            autocomplete="current-password"
+                        />
+                    </div>
+                    <InputError class="mt-1 text-xs text-right" :message="form.errors.password" />
+                </div>
+
+                <!-- مرا به خاطر بسپار -->
+                <div class="pt-1 flex items-center justify-start">
+                    <label class="flex items-center gap-2 cursor-pointer select-none group">
+                        <Checkbox name="remember" v-model:checked="form.remember" class="rounded-md border-gray-300 text-blue-600 focus:ring-blue-500/30" />
+                        <span class="text-xs text-gray-500 dark:text-gray-400 group-hover:text-gray-700 transition-all">مرا به خاطر بسپار</span>
+                    </label>
+                </div>
+
+                <!-- دکمه ورود اصلی -->
+                <div class="pt-2">
                     <PrimaryButton
-                        :class="{ 'opacity-25': form.processing }"
+                        class="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-bold py-3.5 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/10 border-none"
+                        :class="{ 'opacity-50 cursor-not-allowed': form.processing }"
                         :disabled="form.processing"
                     >
-                        ورود
+                        <span>ورود به حساب</span>
+                        <svg v-if="!form.processing" class="w-4 h-4 transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14" />
+                        </svg>
                     </PrimaryButton>
                 </div>
+            </form>
+
+            <!-- فوتر فرم برای ثبت نام -->
+            <div class="mt-8 text-center border-t border-gray-100 dark:border-gray-800/60 pt-4">
+                <span class="text-xs text-gray-400">حساب کاربری ندارید؟</span>
+                <Link
+                    :href="route('register')"
+                    class="text-xs font-bold text-blue-600 hover:text-blue-700 mr-1.5 hover:underline transition-all"
+                >
+                    ثبت نام کنید
+                </Link>
             </div>
-        </form>
+        </div>
     </GuestLayout>
 </template>

@@ -35,7 +35,7 @@ public function show($room_id)
     );
 
     $room=Room::where('id',$room_id)->firstOrFail();
-    $chats=chat::select('sender_id','message','is_read','created_at')->where('room_id',$room_id)->orderBy('created_at', 'asc')->get();
+    $chats=chat::select('id','sender_id','message','is_read','created_at')->where('room_id',$room_id)->orderBy('created_at', 'asc')->get();
 
     $chatName = $this->resolveChatName($room, $id);
 

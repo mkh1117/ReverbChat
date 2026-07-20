@@ -1,6 +1,7 @@
 <?php
 
-use App\Events\TestEvent;
+use App\Events\MessageEvent;
+use App\Events\MessagesReadEvent;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\auth\AuthenticatedSessionController;
 use App\Http\Controllers\RoomController;
@@ -35,15 +36,27 @@ Route::post('/chat/{room_id}/messages', function(Request $request, $room_id){
         'message'   => $validated['message'],
     ]);
 
-    broadcast(new TestEvent($validated['message'], $room_id))->toOthers();
+    broadcast(new MessageEvent($validated['message'], $room_id))->toOthers();
 
     return response()->json(['success' => true]);
 
 })->middleware('auth');
-// Route::get('/testmodel',function(){
-// $chat=Auth::user();
-// dd($chat->name);
-// });
+Route::post('chat/{room_id}/read',function(Request $request,$room_id){
+    $userId = Auth::id();
+
+    // تغییر وضعیت تمام پیام‌های دریافتی خوانده‌نشده‌ی این اتاق به "خوانده‌شده"
+    Chat::where('room_id', $room_id)
+        ->where('sender_id', '!=', $userId)
+        ->where('is_read', 0)
+        ->update(['is_read' => 1]);
+
+    // برودکست کردن یک رویداد برای باخبر کردن طرف مقابل جهت آبی کردن تیک‌ها
+    broadcast(new MessagesReadEvent($room_id))->toOthers();
+
+    return response()->json(['success' => true]);
+
+})->middleware('auth');
+
 Route::get('/', [AuthenticatedSessionController::class, 'create'])->name('login');
 Route::get('/dashboard', [RoomController::class,'main'])->middleware(['auth', 'verified'])->name('dashboard');
 

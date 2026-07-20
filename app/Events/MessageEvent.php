@@ -12,7 +12,7 @@ use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
-class TestEvent implements ShouldBroadcastNow
+class MessageEvent implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -36,6 +36,6 @@ class TestEvent implements ShouldBroadcastNow
      */
     public function broadcastOn()
     {
-        return new privateChannel('test.'.$this->room_id);
+        return new privateChannel('message.'.$this->room_id);
     }
 }

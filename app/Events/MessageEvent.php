@@ -19,14 +19,20 @@ class MessageEvent implements ShouldBroadcastNow
     /**
      * Create a new event instance.
      */
+    public $id;
     public $message;
     public $room_id;
+    public $sender_id;
+    public $is_read;
 
-    public function __construct($message,$room_id)
+    public function __construct($chat)
     {
-        $this->message=$message;
-        $this->room_id=$room_id;
-        log::error($room_id);
+        $this->id        = $chat->id;
+        $this->message   = $chat->message;
+        $this->room_id   = $chat->room_id;
+        $this->sender_id = $chat->sender_id;
+        $this->is_read   = $chat->is_read ?? 0;
+        log::error($this->room_id);
     }
 
     /**

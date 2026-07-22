@@ -10,6 +10,7 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Support\Facades\Log;
 
 class MessagesReadEvent implements ShouldBroadcastNow
 {
@@ -20,9 +21,11 @@ class MessagesReadEvent implements ShouldBroadcastNow
      */
 
     public $room_id;
-    public function __construct($room_id)
+    public $message_Ids;
+    public function __construct($room_id,$message_Ids = [])
     {
         $this->room_id = $room_id;
+        $this->message_Ids = $message_Ids;
     }
 
     /**
@@ -34,4 +37,5 @@ class MessagesReadEvent implements ShouldBroadcastNow
     {
          return new privateChannel('message.'.$this->room_id);
     }
+
 }

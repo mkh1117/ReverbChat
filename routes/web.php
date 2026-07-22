@@ -9,6 +9,7 @@ use App\Models\chat;
 use App\Models\room_user;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -36,25 +37,33 @@ Route::post('/chat/{room_id}/messages', function(Request $request, $room_id){
         'message'   => $validated['message'],
     ]);
 
-    broadcast(new MessageEvent($validated['message'], $room_id))->toOthers();
+    broadcast(new MessageEvent($chat))->toOthers();
 
-    return response()->json(['success' => true]);
+    return response()->json(['success' => true, 'message_id' => $chat->id]);
 
 })->middleware('auth');
-Route::post('chat/{room_id}/read',function(Request $request,$room_id){
+Route::post('chat/{room_id}/read', function(Request $request, $room_id) {
     $userId = Auth::id();
 
-    // تغییر وضعیت تمام پیام‌های دریافتی خوانده‌نشده‌ی این اتاق به "خوانده‌شده"
-    Chat::where('room_id', $room_id)
+    // دریافت آی‌دی پیام‌های ارسال شده از سمت فرانت‌اند
+    $message_Ids = $request->input('message_ids', []);
+
+    if (empty($message_Ids)) {
+        return response()->json(['success' => true, 'updated' => 0]);
+    }
+    // تغییر وضعیت فقط برای پیام‌های مشخصی که کاربر واقعاً روی صفحه دیده است
+    $updatedCount = Chat::where('room_id', $room_id)
+        ->whereIn('id', $message_Ids)
         ->where('sender_id', '!=', $userId)
         ->where('is_read', 0)
         ->update(['is_read' => 1]);
+    Log::error($updatedCount);
+    if ($updatedCount > 0) {
+        // فرستادن لیست آی‌دی‌های خوانده شده به طرف مقابل جهت آبی کردن تیک‌ها به صورت آنی
+        broadcast(new MessagesReadEvent($room_id, $message_Ids))->toOthers();
+    }
 
-    // برودکست کردن یک رویداد برای باخبر کردن طرف مقابل جهت آبی کردن تیک‌ها
-    broadcast(new MessagesReadEvent($room_id))->toOthers();
-
-    return response()->json(['success' => true]);
-
+    return response()->json(['success' => true, 'updated' => $updatedCount]);
 })->middleware('auth');
 
 Route::get('/', [AuthenticatedSessionController::class, 'create'])->name('login');

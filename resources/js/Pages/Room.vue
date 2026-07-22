@@ -27,12 +27,17 @@
   :class="{ 'scroll-smooth': isSmooth }"
 >
       <div
-        v-for="(m, index) in messages"
-        :key="m.id || index"
-        :id="'msg-' + m.id"
-        class="flex flex-col w-full relative"
-        :class="m.user === 'sender' ? 'items-left text-left' : 'items-right text-right'"
-      >
+    v-for="(m, index) in messages"
+    :key="m.id || index"
+    :id="'msg-' + m.id"
+
+    class="message-bubble flex flex-col w-full relative"
+    :data-msg-id="m.id"
+    :data-user="m.user"
+    :data-is-read="m.is_read"
+
+    :class="m.user === 'sender' ? 'items-left text-left' : 'items-right text-right'"
+  >
         <!-- حباب پیام همراه با منوی کلیک -->
         <div class="relative group max-w-xs md:max-w-md" :class="m.user === 'sender' ? 'self-end' : 'self-start'">
 
@@ -145,7 +150,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, nextTick , watch} from 'vue'
 import axios from 'axios'
 import '../echo'
 
@@ -232,9 +237,15 @@ const initMessages = () => {
     }
 }
 
-const markAsRead = async () => {
+// تغییر متد برای ارسال آی‌دی پیام‌های خاصی که دیده شده‌اند
+const markAsRead = async (messageIds) => {
+    if (!messageIds || messageIds.length === 0) return
+
     try {
-        await axios.post(`/chat/${props.room.id}/read`)
+        axios.defaults.headers.common["X-Socket-Id"] = Echo.socketId()
+        await axios.post(`/chat/${props.room.id}/read`, {
+            message_ids: messageIds // آرایه‌ای از آی‌دی پیام‌هایی که کاربر واقعاً دیده است
+        })
     } catch (e) {
         console.error('خطا در به‌روزرسانی وضعیت سین پیام‌ها:', e)
     }
@@ -267,11 +278,75 @@ const deleteMessage = async (message, index) => {
   messages.value.splice(index, 1)
   try {
     if (message.id) {
+      axios.defaults.headers.common["X-Socket-Id"] = Echo.socketId()
       await axios.delete(`/chat/messages/${message.id}`)
     }
   } catch (e) {
     console.error('خطا در حذف پیام:', e)
   }
+}
+
+let observer = null
+const pendingReadIds = new Set() // برای جمع‌آوری آی‌دی پیام‌های خوانده شده
+let readTimeout = null
+
+const setupIntersectionObserver = () => {
+    const options = {
+        root: chatBox.value,
+        threshold: 0.1 // کاهش آستانه به 10% جهت تشخیص سریع‌تر پیام در صفحه
+    }
+
+    observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const msgId = entry.target.getAttribute('data-msg-id')
+                const isReceiver = entry.target.getAttribute('data-user') === 'receiver'
+                const isUnread = entry.target.getAttribute('data-is-read') === '0' || entry.target.getAttribute('data-is-read') === 'false' || entry.target.getAttribute('data-is-read') === false
+
+                console.log("id:",msgId,"---isReceiver",isReceiver,"--isUnread",isUnread)
+                if (msgId && isReceiver && isUnread) {
+                    pendingReadIds.add(Number(msgId))
+
+                    clearTimeout(readTimeout)
+                    readTimeout = setTimeout(() => {
+                        if (pendingReadIds.size > 0) {
+                            const idsToSend = Array.from(pendingReadIds)
+                            console.log('👁️ پیام‌های زیر خوانده شدند (ارسال به سرور):', idsToSend)
+                            markAsRead(idsToSend)
+
+                            // آپدیت موقت وضعیت در فرانت تا قبل از پاسخ ایونت
+                            messages.value.forEach(m => {
+                                if (idsToSend.includes(m.id)) {
+                                    m.is_read = 1
+                                }
+                            })
+
+                            pendingReadIds.clear()
+                        }
+                    }, 300)
+                }
+            }
+        })
+    }, options)
+
+    attachObserverToMessages()
+}
+
+const attachObserverToMessages = () => {
+    if (!observer) return
+
+    // استفاده از nextTick و انیمیشن فریم مرورگر برای اطمینان از رندر کامل تگ‌ها در DOM
+    nextTick(() => {
+        requestAnimationFrame(() => {
+            const messageElements = chatBox.value?.querySelectorAll('.message-bubble')
+            messageElements?.forEach(el => {
+                // ابتدا رصد قبلی را قطع می‌کنیم تا تداخل ایجاد نشود
+                observer.unobserve(el)
+                // مجدداً رصد را شروع می‌کنیم
+                observer.observe(el)
+            })
+        })
+    })
 }
 
 const send = async () => {
@@ -295,10 +370,16 @@ const send = async () => {
 
     try {
         axios.defaults.headers.common["X-Socket-Id"] = Echo.socketId()
-        await axios.post(`/chat/${props.room.id}/messages`, {
+        const res = await axios.post(`/chat/${props.room.id}/messages`, {
             message: text,
             reply_to_id: replyPayload ? replyPayload.id : null
         })
+        if (res.data && res.data.message_id) {
+            const targetMsg = messages.value.find(m => m.id === tempId)
+            if (targetMsg) {
+                targetMsg.id = res.data.message_id
+            }
+        }
     } catch(e) {
         console.error('خطا در ارسال:', e)
     }
@@ -306,36 +387,59 @@ const send = async () => {
 
 onMounted(() => {
     initMessages()
-    markAsRead()
+    setupIntersectionObserver()
 
-    // ۱. گوش دادن به پیام‌های جدید
-    Echo.private('message.' + props.room.id)
-        .listen('MessageEvent', (e) => {
-            messages.value.push({
-              id: e.id,
-              message: e.message,
-              user: e.sender_id === props.user.id ? 'sender' : 'receiver',
-              reply_to: e.reply_to,
-              is_read: e.is_read
-            })
+   // ۱. گوش دادن به پیام‌های جدید
+// ۱. گوش دادن به پیام‌های جدید
+Echo.private('message.' + props.room.id)
+    .listen('MessageEvent', (e) => {
+        const isSender = e.sender_id === props.user.id;
 
-            if (!showScrollDownBtn.value || e.sender_id === props.user.id) {
-                scrollToBottom()
-            }
-
-            if(e.sender_id !== props.user.id) {
-                markAsRead()
-            }
+        messages.value.push({
+            id: e.id,
+            message: e.message,
+            user: isSender ? 'sender' : 'receiver',
+            reply_to: e.reply_to,
+            is_read: e.is_read
         })
 
-    // ۲. گوش دادن به رویداد سین خوردن پیام‌ها
-    Echo.private('message.' + props.room.id)
-        .listen('MessagesReadEvent', () => {
-            messages.value.forEach(msg => {
-                if (msg.user === 'sender') {
-                    msg.is_read = 1
+        attachObserverToMessages()
+
+        if (!showScrollDownBtn.value || isSender) {
+            scrollToBottom()
+        }
+
+        // اگر گیرنده هستیم و کاربر در انتهای صفحه چت حضور دارد:
+        if (!isSender) {
+            nextTick(() => {
+                // اگر اسکرول در پایین صفحه است، پیام خوانده شده تلقی می‌شود
+                if (!showScrollDownBtn.value) {
+                    setTimeout(() => {
+                        markAsRead([e.id]);
+                    }, 200);
                 }
             })
-        })
+        }
+    })
+
+   // ۲. گوش دادن به رویداد سین خوردن پیام‌ها
+Echo.private('message.' + props.room.id)
+    .listen('MessagesReadEvent', (e) => {
+        // مطمئن شوید متغیر آرایه در ایونت لاراول وجود دارد
+        if (e.message_ids && Array.isArray(e.message_ids)) {
+            messages.value.forEach(msg => {
+                if (msg.user === 'sender' && e.message_ids.includes(msg.id)) {
+                    msg.is_read = 1; // تیک آبی فعال می‌شود
+                }
+            })
+        } else {
+            // حالت زاپاس اگر کل چت خوانده شده باشد
+            messages.value.forEach(msg => {
+                if (msg.user === 'sender') {
+                    msg.is_read = 1;
+                }
+            })
+        }
+    })
 })
 </script>

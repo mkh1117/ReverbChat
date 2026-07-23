@@ -10,4 +10,8 @@ class room_user extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+    public function room()
+    {
+        return $this->belongsTo(Room::class, 'room_id');
+    }
 }

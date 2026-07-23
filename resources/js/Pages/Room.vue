@@ -374,12 +374,12 @@ const send = async () => {
             message: text,
             reply_to_id: replyPayload ? replyPayload.id : null
         })
-        if (res.data && res.data.message_id) {
-            const targetMsg = messages.value.find(m => m.id === tempId)
-            if (targetMsg) {
-                targetMsg.id = res.data.message_id
-            }
-        }
+        // if (res.data && res.data.message_id) {
+        //     const targetMsg = messages.value.find(m => m.id === tempId)
+        //     if (targetMsg) {
+        //         targetMsg.id = res.data.message_id
+        //     }
+        // }
     } catch(e) {
         console.error('خطا در ارسال:', e)
     }

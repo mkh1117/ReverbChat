@@ -7,7 +7,17 @@
 
         <!-- حالت عادی هدر -->
         <template v-if="!searchOpen">
-          <h1 class="text-xl font-bold text-gray-900 selection:bg-blue-100">پیام‌ها</h1>
+          <div class="flex items-center gap-2">
+              <h1 class="text-xl font-bold text-gray-900 selection:bg-blue-100">پیام‌ها</h1>
+
+              <!-- نشانگر کل پیام‌های خوانده‌نشده -->
+              <span
+                v-if="totalUnread > 0"
+                class="bg-blue-500 text-white text-xs font-bold px-2 py-0.5 rounded-full"
+              >
+                {{ totalUnread }} جدید
+              </span>
+            </div>
           <button @click="toggleSearch"
             class="w-10 h-10 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 active:scale-95 transition-all"
             aria-label="جستجو">
@@ -55,9 +65,9 @@
       <div v-if="!searchOpen" class="space-y-1">
         <div class="flex items-center justify-between px-1 mb-2">
           <span class="text-xs font-semibold text-gray-400 tracking-wider">گفتگوهای اخیر</span>
-          <span class="text-xs text-gray-400 bg-gray-200/60 px-2 py-0.5 rounded-full">{{ rooms.length }} مکالمه</span>
+          <span class="text-xs text-gray-400 bg-gray-200/60 px-2 py-0.5 rounded-full">{{ localRooms.length }} مکالمه</span>
         </div>
-        <RoomItem v-for="room in rooms" :key="room.id" :room="room" />
+        <RoomItem v-for="room in localRooms" :key="room.id" :room="room" />
       </div>
 
       <!-- نتایج جستجو -->
@@ -91,11 +101,23 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
+import { usePage } from '@inertiajs/vue3'
 import RoomItem from '../Components/RoomItem.vue'
 
 const props = defineProps({
   rooms: { type: Array, default: () => [] }
+})
+
+// ۱. کپی کردن پروپس در یک ref محلی برای امکان تغییر ری‌اکتیو
+const localRooms = ref([...props.rooms])
+
+// گرفتن ID کاربر جاری از Inertia برای تشخیص پیام‌های خودی از دیگران
+const currentUserId = usePage().props.auth.user.id
+
+// محاسبه مجموع پیام‌های خوانده نشده از روی localRooms
+const totalUnread = computed(() => {
+  return localRooms.value.reduce((acc, room) => acc + (room.unread_count || 0), 0)
 })
 
 const searchOpen = ref(false)
@@ -107,15 +129,54 @@ const toggleSearch = async () => {
   if (!searchOpen.value) {
     search.value = ''
   } else {
-    // فوکوس خودکار روی اینپوت بعد از رندر شدن
     await nextTick()
     searchInput.value?.focus()
   }
 }
 
+// فیلتر کردن بر اساس لیست محلی localRooms
 const filteredRooms = computed(() =>
-  props.rooms.filter(room =>
+  localRooms.value.filter(room =>
     room.name.toLowerCase().includes(search.value.toLowerCase())
   )
 )
+
+// ۲. اتصال به WebSocket پس از رندر شدن کامپوننت
+onMounted(() => {
+  localRooms.value.forEach(room => {
+    // نکته: قبل از MessageEvent یک دات (.) بگذار تا Namespace کامل لاراولی رو بای‌پاس کنه
+    Echo.private(`message.${room.id}`)
+      .listen('MessageEvent', (e) => {
+        console.log('داده دریافت شده از سوکت:', e)
+
+        // فیلد sender_id مستقیماً روی e قرار دارد نه e.message
+        const senderId = Number(e.sender_id)
+        const myId = Number(currentUserId)
+        const roomId = e.room_id
+
+        // اگر پیام توسط فرد دیگری ارسال شده باشد
+        if (senderId !== myId) {
+          const targetRoom = localRooms.value.find(r => r.id === roomId)
+
+          if (targetRoom) {
+            // ۱. افزایش تعداد پیام‌های خوانده‌نشده
+            targetRoom.unread_count = (targetRoom.unread_count || 0) + 1
+
+            // ۲. جابه‌جایی چت به بالای لیست
+            localRooms.value = [
+              targetRoom,
+              ...localRooms.value.filter(r => r.id !== targetRoom.id)
+            ]
+          }
+        }
+      })
+  })
+})
+
+// لغو اشتراک‌ها هنگام خروج از صفحه برای جلوگیری از افت سرعت و Memory Leak
+onUnmounted(() => {
+  localRooms.value.forEach(room => {
+    Echo.leave(`chat.${room.id}`)
+  })
+})
 </script>

@@ -13,12 +13,18 @@ use Inertia\Inertia;
 class RoomController extends Controller
 {
     public function main(){
-        $id=Auth::id();
-        $rooms = Room::select('id', 'name')
-                    ->whereIn('id',
-                        room_user::where('user_id', $id)
-                                 ->pluck('room_id')
-                    )->get();
+        $userId=Auth::id();
+        $rooms = Room::query()
+        ->select('id', 'name', 'type')
+        ->whereHas('users', function ($query) use ($userId) {
+            $query->where('users.id', $userId);
+        })
+        ->withCount(['messages as unread_count' => function ($query) use ($userId) {
+            $query->where('is_read', false)
+                  ->where('sender_id', '!=', $userId); // <-- تغییر user_id به sender_id
+        }])
+        ->get();
+
 
         return Inertia::render('main',['rooms'=>$rooms]);
     }

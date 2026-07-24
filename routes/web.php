@@ -37,6 +37,7 @@ Route::post('/chat/{room_id}/messages', function(Request $request, $room_id){
         'sender_id' => $id,
         'message'   => $validated['message'],
     ]);
+    $chat->load('sender');
 
     broadcast(new MessageEvent($chat))->toOthers();
 

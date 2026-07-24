@@ -25,8 +25,9 @@ class RoomController extends Controller
         }])
         ->get();
 
+        $contacts=Contact::where('owner_id',$userId)->get();
 
-        return Inertia::render('main',['rooms'=>$rooms]);
+        return Inertia::render('main',['rooms'=>$rooms,'contacts'=>$contacts]);
     }
 
 
@@ -41,7 +42,13 @@ public function show($room_id)
     );
 
     $room=Room::where('id',$room_id)->firstOrFail();
-    $chats=chat::select('id','sender_id','message','is_read','created_at')->where('room_id',$room_id)->orderBy('created_at', 'asc')->get();
+    $chats = chat::with([
+        'sender:id,name', 
+    ])
+    ->select('id', 'sender_id', 'message', 'is_read', 'created_at')
+    ->where('room_id', $room_id)
+    ->orderBy('created_at', 'asc')
+    ->get();
 
     $chatName = $this->resolveChatName($room, $id);
 
@@ -70,4 +77,43 @@ private function resolveChatName(Room $room, int $userId): string
            ?? $other?->user?->name
            ?? 'کاربر حذف شده';
 }
+
+public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name'            => 'required|string|max:255',
+            'type'            => 'required|in:group,channel',
+            'selectedMembers' => 'nullable|array',
+            'selectedMembers.*' => 'exists:users,id',
+        ]);
+
+        $userId = Auth::id();
+
+        // ۱. ساخت اتاق جدید
+        $room = Room::create([
+            'name' => $validated['name'],
+            'type' => $validated['type'], // 'group' یا 'channel'
+            'owner_id' => $userId,
+        ]);
+
+        // ۲. اضافه کردن سازنده به عنوان ادمین/مالک اتاق
+        room_user::create([
+            'room_id' => $room->id,
+            'user_id' => $userId,
+            'role'    => 'owner',
+        ]);
+
+        // ۳. اضافه کردن اعضای انتخاب شده از لیست مخاطبین
+        if (!empty($validated['selectedMembers'])) {
+            foreach ($validated['selectedMembers'] as $memberId) {
+                room_user::create([
+                    'room_id' => $room->id,
+                    'user_id' => $memberId,
+                    'role'    => 'member',
+                ]);
+            }
+        }
+
+        return redirect()->back();
+    }
 }

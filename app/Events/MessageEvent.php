@@ -24,6 +24,7 @@ class MessageEvent implements ShouldBroadcastNow
     public $room_id;
     public $sender_id;
     public $is_read;
+    public $sender_name;
 
     public function __construct($chat)
     {
@@ -32,6 +33,7 @@ class MessageEvent implements ShouldBroadcastNow
         $this->room_id   = $chat->room_id;
         $this->sender_id = $chat->sender_id;
         $this->is_read   = $chat->is_read ?? 0;
+        $this->sender_name = $chat->sender->name;
         log::error($this->room_id);
     }
 

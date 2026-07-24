@@ -14,6 +14,12 @@ class Room extends Model
     protected $keyType = 'string';
     public $incrementing = false;
 
+    protected $fillable = [
+        'name',
+        'type',
+        'owner_id'
+    ];
+
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'room_users', 'room_id', 'user_id')

@@ -11,4 +11,9 @@ class chat extends Model
     protected $casts = [
         'is_read' => 'boolean',
     ];
+
+    public function sender()
+{
+    return $this->belongsTo(User::class, 'sender_id');
+}
 }

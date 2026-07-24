@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->uuid('room_id');
             $table->unsignedBigInteger('user_id');
+            $table->enum('role', ['member', 'admin', 'owner'])->default('member');
             $table->timestamps();
 
             $table->foreign('room_id')->references('id')->on('rooms')->onDelete('cascade');

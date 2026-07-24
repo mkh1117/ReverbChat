@@ -39,62 +39,75 @@
     :class="m.user === 'sender' ? 'items-left text-left' : 'items-right text-right'"
   >
         <!-- حباب پیام همراه با منوی کلیک -->
-        <div class="relative group max-w-xs md:max-w-md" :class="m.user === 'sender' ? 'self-end' : 'self-start'">
+<div class="relative group max-w-xs md:max-w-md" :class="m.user === 'sender' ? 'self-end' : 'self-start'">
 
-          <div
-            @click.stop="toggleMessageMenu(index)"
-            class="flex flex-col rounded-2xl shadow-sm text-sm leading-relaxed cursor-pointer select-none active:opacity-90 transition-all overflow-hidden pb-1"
-            :class="[
-              m.user === 'sender'
-                ? 'bg-blue-600 text-white rounded-bl-none self-end'
-                : 'bg-white text-gray-800 rounded-br-none border border-gray-100 self-start'
-            ]"
-          >
-            <!-- نمایش پیام ریپلای شده -->
-            <div
-              v-if="m.reply_to"
-              class="text-xs px-3 py-1.5 border-r-4 mt-2 mx-2 rounded flex flex-col text-right"
-              :class="m.user === 'sender'
-                ? 'bg-blue-700/40 border-white text-blue-100'
-                : 'bg-gray-100 border-blue-500 text-gray-500'"
-            >
-              <span class="font-bold text-[10px]" :class="m.user === 'sender' ? 'text-white' : 'text-blue-600'">پاسخ به:</span>
-              <span class="truncate mt-0.5">{{ truncateText(m.reply_to.message) }}</span>
-            </div>
+  <div
+    @click.stop="toggleMessageMenu(index)"
+    class="flex flex-col rounded-2xl shadow-sm text-sm leading-relaxed cursor-pointer select-none active:opacity-90 transition-all overflow-hidden pb-1"
+    :class="[
+      m.user === 'sender'
+        ? 'bg-blue-600 text-white rounded-bl-none self-end'
+        : 'bg-white text-gray-800 rounded-br-none border border-gray-100 self-start'
+    ]"
+  >
+    <!-- نمایش پیام ریپلای شده -->
+    <div
+      v-if="m.reply_to"
+      class="text-xs px-3 py-1.5 border-r-4 mt-2 mx-2 rounded flex flex-col text-right overflow-hidden"
+      :class="m.user === 'sender'
+        ? 'bg-blue-700/40 border-white text-blue-100'
+        : 'bg-gray-100 border-blue-500 text-gray-500'"
+    >
+      <span class="font-bold text-[10px]" :class="m.user === 'sender' ? 'text-white' : 'text-blue-600'">پاسخ به:</span>
+      <span class="truncate mt-0.5">{{ truncateText(m.reply_to.message) }}</span>
+    </div>
 
-            <!-- متن اصلی پیام و وضعیت تیک -->
-            <div class="px-3 pt-3 pb-1.5 whitespace-pre-wrap text-right relative min-w-[70px]">
-              {{ m.message }}
+    <!-- متن اصلی پیام، نام فرستنده و وضعیت تیک -->
+    <div class="px-3 pt-2.5 pb-1.5 text-right relative min-w-[100px] break-words">
 
-              <!-- بخش تیک سین (فقط برای فرستنده نمایش داده می‌شود) -->
-              <div v-if="m.user === 'sender'" class="flex justify-end mt-1 text-[10px] opacity-80" dir="ltr">
-                <!-- دو تیک آبی (خوانده شده) -->
-                <svg v-if="m.is_read" class="w-4 h-4 text-sky-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7M10 17l4 4L23 9" />
-                </svg>
-                <!-- یک تیک خاکستری (ارسال شده اما خوانده نشده) -->
-                <svg v-else class="w-4 h-4 text-blue-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-            </div>
-          </div>
+      <!-- ✅ نام فرستنده در داخل باکس پدینگ‌دار با استایل استاندارد تلگرامی -->
+      <div
+        v-if="room.type === 'group' && m.user === 'receiver' && m.sender_name"
+        class="text-[11px] font-bold text-blue-600 mb-1 leading-tight truncate max-w-full select-none"
+      >
+        {{ m.sender_name }}
+      </div>
 
-          <!-- منوی عملیات پیام -->
-          <div v-if="activeMenuIndex === index"
-            class="absolute top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl py-1 z-30 min-w-[110px]"
-            :class="m.user === 'sender' ? 'left-0' : 'right-0'"
-          >
-            <button @click="startReply(m)" class="w-full text-right px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-              <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
-              پاسخ دادن
-            </button>
-            <button v-if="m.user === 'sender'" @click="deleteMessage(m, index)" class="w-full text-right px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2">
-              <svg class="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-              حذف پیام
-            </button>
-          </div>
-        </div>
+      <!-- متن پیام -->
+      <div class="whitespace-pre-wrap break-words">
+        {{ m.message }}
+      </div>
+
+      <!-- بخش تیک سین (فقط برای فرستنده) -->
+      <div v-if="m.user === 'sender'" class="flex justify-end mt-1 text-[10px] opacity-80" dir="ltr">
+        <!-- دو تیک آبی (خوانده شده) -->
+        <svg v-if="m.is_read" class="w-4 h-4 text-sky-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7M10 17l4 4L23 9" />
+        </svg>
+        <!-- یک تیک خاکستری (ارسال شده اما خوانده نشده) -->
+        <svg v-else class="w-4 h-4 text-blue-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- منوی عملیات پیام -->
+  <div v-if="activeMenuIndex === index"
+    class="absolute top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl py-1 z-30 min-w-[110px]"
+    :class="m.user === 'sender' ? 'left-0' : 'right-0'"
+  >
+    <button @click="startReply(m)" class="w-full text-right px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+      <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+      پاسخ دادن
+    </button>
+    <button v-if="m.user === 'sender'" @click="deleteMessage(m, index)" class="w-full text-right px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2">
+      <svg class="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+      حذف پیام
+    </button>
+  </div>
+</div>
 
       </div>
     </div>
@@ -212,7 +225,6 @@ const initMessages = () => {
     messages.value = props.chats.map(msg => {
         const isSender = msg.sender_id === props.user.id
 
-        // پیدا کردن اولین پیام خوانده‌نشده‌ای که متعلق به مخاطب است
         if (!isSender && (msg.is_read == 0 || msg.is_read === false) && !firstUnreadId) {
             firstUnreadId = msg.id
         }
@@ -221,12 +233,12 @@ const initMessages = () => {
             id: msg.id,
             message: msg.message,
             user: isSender ? 'sender' : 'receiver',
+            sender_name: msg.sender ? msg.sender.name : (msg.sender_name || 'کاربر'), // دریافت نام فرستنده
             reply_to: msg.reply_to,
             is_read: msg.is_read
         }
     })
 
-    // هندل کردن موقعیت شروع اسکرول بدون تداخل انیمیشن
     if (firstUnreadId) {
         scrollToFirstUnread(firstUnreadId)
     } else {
@@ -389,7 +401,6 @@ onMounted(() => {
     initMessages()
     setupIntersectionObserver()
 
-   // ۱. گوش دادن به پیام‌های جدید
 // ۱. گوش دادن به پیام‌های جدید
 Echo.private('message.' + props.room.id)
     .listen('MessageEvent', (e) => {
@@ -399,6 +410,7 @@ Echo.private('message.' + props.room.id)
             id: e.id,
             message: e.message,
             user: isSender ? 'sender' : 'receiver',
+            sender_name: e.sender_name || (e.sender ? e.sender.name : 'کاربر'), // نام فرستنده از WebSocket
             reply_to: e.reply_to,
             is_read: e.is_read
         })
@@ -409,10 +421,8 @@ Echo.private('message.' + props.room.id)
             scrollToBottom()
         }
 
-        // اگر گیرنده هستیم و کاربر در انتهای صفحه چت حضور دارد:
         if (!isSender) {
             nextTick(() => {
-                // اگر اسکرول در پایین صفحه است، پیام خوانده شده تلقی می‌شود
                 if (!showScrollDownBtn.value) {
                     setTimeout(() => {
                         markAsRead([e.id]);

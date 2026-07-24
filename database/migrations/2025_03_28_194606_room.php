@@ -14,8 +14,10 @@ return new class extends Migration
         Schema::create('rooms', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->string('name');
+            $table->unsignedBigInteger('owner_id')->nullable();
             $table->enum('type', ['private', 'group', 'channel'])->default('private');
             $table->timestamps();
+            $table->foreign('owner_id')->references('id')->on('users')->onDelete('set null');
         });
     }
 

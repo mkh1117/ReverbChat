@@ -95,6 +95,7 @@
           <span class="font-medium text-gray-500">نام مخاطب یا گروه را جستجو کنید</span>
         </div>
       </div>
+      <NewGroup :contacts="props.contacts" />
 
     </main>
   </div>
@@ -104,6 +105,7 @@
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { usePage } from '@inertiajs/vue3'
 import RoomItem from '../Components/RoomItem.vue'
+import NewGroup from '../Components/NewGroup.vue'
 
 const props = defineProps({
   rooms: { type: Array, default: () => [] }
@@ -144,7 +146,7 @@ const filteredRooms = computed(() =>
 // ۲. اتصال به WebSocket پس از رندر شدن کامپوننت
 onMounted(() => {
   localRooms.value.forEach(room => {
-    // نکته: قبل از MessageEvent یک دات (.) بگذار تا Namespace کامل لاراولی رو بای‌پاس کنه
+
     Echo.private(`message.${room.id}`)
       .listen('MessageEvent', (e) => {
         console.log('داده دریافت شده از سوکت:', e)
@@ -176,7 +178,7 @@ onMounted(() => {
 // لغو اشتراک‌ها هنگام خروج از صفحه برای جلوگیری از افت سرعت و Memory Leak
 onUnmounted(() => {
   localRooms.value.forEach(room => {
-    Echo.leave(`chat.${room.id}`)
+    Echo.leave(`message.${room.id}`)
   })
 })
 </script>

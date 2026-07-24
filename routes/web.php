@@ -18,6 +18,7 @@ use Inertia\Inertia;
 
 Route::get('/main',[RoomController::class,'main'])->middleware('auth');
 Route::get('/chat/{room_id}', [RoomController::class, 'show'])->name("test")->middleware('auth');
+Route::post('/rooms/create', [RoomController::class, 'store'])->middleware('auth');
 Route::post('/chat/{room_id}/messages', function(Request $request, $room_id){
     $id = Auth::id();
 

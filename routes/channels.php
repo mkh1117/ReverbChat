@@ -16,7 +16,7 @@ Broadcast::channel('message.{room_id}', function($user,$room_id){
 });
 
 Broadcast::channel('chat.presence.{roomId}', function ($user, $roomId) {
-    $ismember = DB::table('room_user')->where('room_id',$room_id)->where('user_id',$user->id)->exists();
+    $ismember = DB::table('room_users')->where('room_id',$roomId)->where('user_id',$user->id)->exists();
 
     if ($ismember){
         return [

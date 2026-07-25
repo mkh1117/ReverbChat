@@ -6,6 +6,7 @@ use App\Models\chat;
 use App\Models\Room;
 use App\Models\room_user;
 use App\Models\Contact;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -42,7 +43,17 @@ public function show($room_id)
 
     abort_if(!$roomUser, 403);
 
+    $otherUser = null;
     $room=Room::where('id',$room_id)->firstOrFail();
+    //گرفتن آخرین بازدید ها
+    if ($room->type === 'private') {
+        $otherUser = User::whereHas('rooms', function ($q) use ($room_id) {
+            $q->where('rooms.id', $room_id);
+        })->where('id', '!=', $id)
+          ->select('id', 'name', 'last_seen_at')
+          ->first();
+    }
+
     $chats = chat::with([
         'sender:id,name',
     ])
@@ -58,6 +69,7 @@ public function show($room_id)
         'room'      => $room,
         'chat_name' => $chatName,
         'user_role' => $roomUser->role,
+        'other_user' => $otherUser,
         'chats'     => $chats
     ]);
 }

@@ -11,12 +11,34 @@
           </svg>
         </a>
 
-      <div class="flex flex-col flex-1">
-        <h2 class="font-bold text-gray-800 text-base leading-tight">{{ chat_name }}</h2>
-        <span class="text-xs font-medium mt-0.5" :class="room.type === 'channel' || room.type === 'group' ? 'text-gray-400' : 'text-green-500'">
-          {{ room.type === 'channel' ? 'کانال' : room.type === 'group' ? 'گروه' : 'آنلاین' }}
-        </span>
-      </div>
+      <!-- هدر چت -->
+<div class="flex flex-col flex-1">
+  <h2 class="font-bold text-gray-800 text-base leading-tight">{{ chat_name }}</h2>
+
+  <!-- نمایش وضعیت آنلاین / آفلاین / نوع روم -->
+  <div class="text-xs font-medium mt-0.5">
+
+    <!-- حالت ۱: کانال -->
+    <span v-if="room.type === 'channel'" class="text-gray-400">کانال عمومی</span>
+
+    <!-- حالت ۲: گروه -->
+    <span v-else-if="room.type === 'group'" class="text-gray-400">
+      {{ onlineUsers.length }} نفر آنلاین
+    </span>
+
+    <!-- حالت ۳: چت خصوصی (Direct) -->
+    <template v-else>
+      <span v-if="isPartnerOnline" class="text-green-500 flex items-center gap-1">
+        <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+        آنلاین
+      </span>
+      <span v-else class="text-gray-400">
+        آخرین بازدید {{ formatLastSeen(other_user?.last_seen_at) }}
+      </span>
+    </template>
+
+  </div>
+</div>
     </header>
 
     <!-- باکس پیام‌ها همراه با لیسنر اسکرول -->
@@ -174,16 +196,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick , computed} from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
 import axios from 'axios'
 import '../echo'
 
 const props = defineProps({
-    user:      Object,
-    room:      Object,
-    chat_name: String,
-    user_role: String,
-    chats:     Array,
+    user:       Object,
+    room:       Object,
+    chat_name:  String,
+    user_role:  String,
+    chats:      Array,
+    other_user: Object,
 })
 
 defineEmits(['back'])
@@ -196,6 +219,21 @@ const isSmooth = ref(false)
 
 const activeMenuIndex = ref(null)
 const replyingTo = ref(null)
+
+const onlineUsers = ref([])
+
+
+const isPartnerOnline = computed(() => {
+    if (!props.other_user) return false
+    return onlineUsers.value.some(u => u.id === props.other_user.id)
+})
+
+
+const formatLastSeen = (timestamp) => {
+    if (!timestamp) return 'اخیر'
+    const date = new Date(timestamp)
+    return date.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
+}
 
 //کنترل دسترسی ها در کانال
 const canSendMessage = computed(() => {
@@ -472,5 +510,28 @@ Echo.private('message.' + props.room.id)
             })
         }
     })
+
+Echo.join(`chat.presence.${props.room.id}`)
+        .here((users) => {
+
+            onlineUsers.value = users
+        })
+        .joining((user) => {
+
+            if (!onlineUsers.value.some(u => u.id === user.id)) {
+                onlineUsers.value.push(user)
+            }
+        })
+        .leaving((user) => {
+
+            onlineUsers.value = onlineUsers.value.filter(u => u.id !== user.id)
+        })
+        .error((error) => {
+            console.error('خطای Presence Channel:', error)
+    })
+})
+
+onUnmounted(() => {
+    Echo.leave(`chat.presence.${props.room.id}`)
 })
 </script>

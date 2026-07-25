@@ -123,47 +123,58 @@
       </svg>
     </button>
 
-    <!-- نوار پایین -->
-    <div class="p-3 bg-white border-t border-gray-200 flex flex-col gap-2 z-10">
-      <!-- باکس پیش‌نمایش ریپلای -->
-      <div v-if="replyingTo" class="flex items-center justify-between bg-blue-50 border-r-4 border-blue-500 px-3 py-2 rounded-lg w-full text-xs animate-fade-in">
-        <div class="flex flex-col text-right overflow-hidden">
-          <span class="font-bold text-blue-600">پاسخ به پیام</span>
-          <span class="text-gray-500 truncate mt-0.5">{{ replyingTo.message }}</span>
-        </div>
-        <button @click="cancelReply" class="text-gray-400 hover:text-gray-600 p-1">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
-      </div>
+   <!-- نوار پایین -->
+<div class="p-3 bg-white border-t border-gray-200 flex flex-col gap-2 z-10">
 
-      <!-- فیلد اصلی ارسال پیام -->
-      <div class="flex items-center gap-2">
-        <button
-          @click="send"
-          :disabled="!newMessage.trim()"
-          class="bg-blue-600 text-white rotate-90 p-3 rounded-2xl hover:bg-blue-700 active:scale-95 disabled:opacity-40 disabled:scale-100 transition-all flex items-center justify-center shadow-md shadow-blue-500/20"
-        >
-          <svg class="w-5 h-5 transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" stroke-width="2" />
-          </svg>
-        </button>
-        <div class="flex-1 relative flex items-center" dir="rtl">
-          <input
-            type="text"
-            v-model="newMessage"
-            @keyup.enter="send"
-            placeholder="پیام خود را بنویسید..."
-            class="w-full bg-gray-50 text-sm text-gray-800 border-0 rounded-2xl px-4 py-3 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-gray-400"
-          >
-        </div>
+  <!-- حالت ۱: کاربر دسترسی ارسال پیام دارد -->
+  <template v-if="canSendMessage">
+    <!-- باکس پیش‌نمایش ریپلای -->
+    <div v-if="replyingTo" class="flex items-center justify-between bg-blue-50 border-r-4 border-blue-500 px-3 py-2 rounded-lg w-full text-xs animate-fade-in">
+      <div class="flex flex-col text-right overflow-hidden">
+        <span class="font-bold text-blue-600">پاسخ به پیام</span>
+        <span class="text-gray-500 truncate mt-0.5">{{ replyingTo.message }}</span>
       </div>
+      <button @click="cancelReply" class="text-gray-400 hover:text-gray-600 p-1">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
     </div>
 
-  </div>
+    <!-- فیلد اصلی ارسال پیام -->
+    <div class="flex items-center gap-2">
+      <button
+        @click="send"
+        :disabled="!newMessage.trim()"
+        class="bg-blue-600 text-white rotate-90 p-3 rounded-2xl hover:bg-blue-700 active:scale-95 disabled:opacity-40 disabled:scale-100 transition-all flex items-center justify-center shadow-md shadow-blue-500/20"
+      >
+        <svg class="w-5 h-5 transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" stroke-width="2" />
+        </svg>
+      </button>
+      <div class="flex-1 relative flex items-center" dir="rtl">
+        <input
+          type="text"
+          v-model="newMessage"
+          @keyup.enter="send"
+          placeholder="پیام خود را بنویسید..."
+          class="w-full bg-gray-50 text-sm text-gray-800 border-0 rounded-2xl px-4 py-3 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-gray-400"
+        >
+      </div>
+    </div>
+  </template>
+
+  <!-- حالت ۲: کاربر دسترسی ارسال پیام ندارد (کانال) -->
+  <template v-else>
+    <div class="w-full py-2.5 text-center text-xs font-medium text-gray-500 bg-gray-100 rounded-2xl select-none">
+      فقط مدیران این کانال می‌توانند پیام ارسال کنند
+    </div>
+  </template>
+
+    </div>
+</div>
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick , watch} from 'vue'
+import { ref, onMounted, nextTick , computed} from 'vue'
 import axios from 'axios'
 import '../echo'
 
@@ -171,6 +182,7 @@ const props = defineProps({
     user:      Object,
     room:      Object,
     chat_name: String,
+    user_role: String,
     chats:     Array,
 })
 
@@ -180,10 +192,19 @@ const newMessage = ref('')
 const messages = ref([])
 const chatBox = ref(null)
 const showScrollDownBtn = ref(false)
-const isSmooth = ref(false) // کنترل داینامیک انیمیشن اسکرول
+const isSmooth = ref(false)
 
 const activeMenuIndex = ref(null)
 const replyingTo = ref(null)
+
+//کنترل دسترسی ها در کانال
+const canSendMessage = computed(() => {
+    if (props.room.type !== 'channel') {
+        return true
+    }
+
+    return ['owner', 'admin'].includes(props.user_role)
+})
 
 const scrollToBottom = async () => {
     await nextTick()

@@ -6,6 +6,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\auth\AuthenticatedSessionController;
 use App\Http\Controllers\RoomController;
 use App\Models\chat;
+use App\Models\Room;
 use App\Models\room_user;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -19,29 +20,42 @@ use Inertia\Inertia;
 Route::get('/main',[RoomController::class,'main'])->middleware('auth');
 Route::get('/chat/{room_id}', [RoomController::class, 'show'])->name("test")->middleware('auth');
 Route::post('/rooms/create', [RoomController::class, 'store'])->middleware('auth');
-Route::post('/chat/{room_id}/messages', function(Request $request, $room_id){
-    $id = Auth::id();
+Route::post('/chat/{room_id}/messages', function (Request $request, $room_id) {
+    $userId = Auth::id();
 
-    $exist = room_user::where('room_id', $room_id)
-                      ->where('user_id', $id)
-                      ->exists();
 
-    abort_if(!$exist, 403);
+    $roomUser = room_user::where('room_id', $room_id)
+        ->where('user_id', $userId)
+        ->first();
+
+    abort_if(!$roomUser, 403);
+
+    $room = Room::select('id', 'type')->findOrFail($room_id);
+
+
+    if ($room->type === 'channel' && $roomUser->role === 'member') {
+        abort(403);
+    }
 
     $validated = $request->validate([
         'message' => 'required|string|max:1000',
     ]);
 
+
     $chat = Chat::create([
         'room_id'   => $room_id,
-        'sender_id' => $id,
+        'sender_id' => $userId,
         'message'   => $validated['message'],
     ]);
-    $chat->load('sender');
+
+    $chat->load('sender:id,name');
 
     broadcast(new MessageEvent($chat))->toOthers();
 
-    return response()->json(['success' => true, 'message_id' => $chat->id]);
+    return response()->json([
+        'success' => true,
+        'message_id'    => $chat->id
+    ], 201);
 
 })->middleware('auth');
 Route::post('chat/{room_id}/read', function(Request $request, $room_id) {

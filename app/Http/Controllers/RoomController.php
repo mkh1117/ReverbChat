@@ -8,6 +8,7 @@ use App\Models\room_user;
 use App\Models\Contact;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class RoomController extends Controller
@@ -34,16 +35,16 @@ class RoomController extends Controller
 public function show($room_id)
 {
     $id = Auth::id();
-    abort_if(
-        !room_user::where('room_id', $room_id)
-                  ->where('user_id', $id)
-                  ->exists(),
-        403
-    );
+    $roomUser = DB::table('room_users')
+        ->where('room_id', $room_id)
+        ->where('user_id', $id)
+        ->first();
+
+    abort_if(!$roomUser, 403);
 
     $room=Room::where('id',$room_id)->firstOrFail();
     $chats = chat::with([
-        'sender:id,name', 
+        'sender:id,name',
     ])
     ->select('id', 'sender_id', 'message', 'is_read', 'created_at')
     ->where('room_id', $room_id)
@@ -56,6 +57,7 @@ public function show($room_id)
         'user'      => Auth::user(),
         'room'      => $room,
         'chat_name' => $chatName,
+        'user_role' => $roomUser->role,
         'chats'     => $chats
     ]);
 }

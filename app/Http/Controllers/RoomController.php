@@ -9,7 +9,9 @@ use App\Models\Contact;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class RoomController extends Controller
@@ -57,7 +59,7 @@ public function show($room_id)
     $chats = chat::with([
         'sender:id,name',
     ])
-    ->select('id', 'sender_id', 'message', 'is_read', 'created_at')
+    ->select('id', 'sender_id', 'message', 'is_read', 'created_at','updated_at')
     ->where('room_id', $room_id)
     ->orderBy('created_at', 'asc')
     ->get();
@@ -129,5 +131,27 @@ public function store(Request $request)
         }
 
         return redirect()->back();
+    }
+
+    public function updateLastSeen(Request $request) {
+
+        $user = $request->user();
+        $userId = Auth::id();
+        if(! $user){
+            return response()->json(['status' => 'unauthorized'], 401);
+        }
+
+        $cacheKey = 'user_last_seen_'.$user->id;
+        $dbThrottleKey = 'user_last_seen_db_updated_'.$user->id;
+
+        if (! Cache::has($dbThrottleKey)) {
+            User::where('id',$userId)->update([
+                'last_seen_at' => now(),
+            ]);
+
+            Cache::put($cacheKey, true, 60); // قفل کردن برای ۶۰ ثانیه
+        }
+        return response()->json(['status' => 'success']);
+
     }
 }

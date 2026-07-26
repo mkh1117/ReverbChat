@@ -22,6 +22,7 @@ class User extends Authenticatable
         'name',
         'username',
         'password',
+        'last_seen_at',
     ];
 
     /**
@@ -50,6 +51,6 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Room::class, 'room_users', 'user_id', 'room_id')
                     ->withTimestamps();
-                    
+
     }
 }

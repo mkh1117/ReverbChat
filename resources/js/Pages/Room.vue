@@ -42,97 +42,116 @@
     </header>
 
     <!-- باکس پیام‌ها همراه با لیسنر اسکرول -->
-    <div
+   <!-- باکس پیام‌ها همراه با لیسنر اسکرول -->
+<div
   ref="chatBox"
   @scroll="handleScroll"
   class="flex-1 overflow-y-auto p-4 space-y-4 relative"
   :class="{ 'scroll-smooth': isSmooth }"
 >
-      <div
-    v-for="(m, index) in messages"
-    :key="m.id || index"
-    :id="'msg-' + m.id"
+  <template v-for="(m, index) in messages" :key="m.id || index">
 
-    class="message-bubble flex flex-col w-full relative"
-    :data-msg-id="m.id"
-    :data-user="m.user"
-    :data-is-read="m.is_read"
+    <!-- 📅 جداساز تاریخ روز -->
+    <div v-if="shouldShowDateHeader(index)" class="flex justify-center my-3 select-none">
+      <span class="bg-gray-200/80 backdrop-blur text-gray-600 text-[11px] font-medium px-3 py-1 rounded-full shadow-sm">
+        {{ formatDateLabel(m.created_at) }}
+      </span>
+    </div>
 
-    :class="m.user === 'sender' ? 'items-left text-left' : 'items-right text-right'"
-  >
-        <!-- حباب پیام همراه با منوی کلیک -->
-<div class="relative group max-w-xs md:max-w-md" :class="m.user === 'sender' ? 'self-end' : 'self-start'">
-
-  <div
-    @click.stop="toggleMessageMenu(index)"
-    class="flex flex-col rounded-2xl shadow-sm text-sm leading-relaxed cursor-pointer select-none active:opacity-90 transition-all overflow-hidden pb-1"
-    :class="[
-      m.user === 'sender'
-        ? 'bg-blue-600 text-white rounded-bl-none self-end'
-        : 'bg-white text-gray-800 rounded-br-none border border-gray-100 self-start'
-    ]"
-  >
-    <!-- نمایش پیام ریپلای شده -->
+    <!-- حباب پیام -->
     <div
-      v-if="m.reply_to"
-      class="text-xs px-3 py-1.5 border-r-4 mt-2 mx-2 rounded flex flex-col text-right overflow-hidden"
-      :class="m.user === 'sender'
-        ? 'bg-blue-700/40 border-white text-blue-100'
-        : 'bg-gray-100 border-blue-500 text-gray-500'"
+      :id="'msg-' + m.id"
+      class="message-bubble flex flex-col w-full relative"
+      :data-msg-id="m.id"
+      :data-user="m.user"
+      :data-is-read="m.is_read"
+      :class="m.user === 'sender' ? 'items-left text-left' : 'items-right text-right'"
     >
-      <span class="font-bold text-[10px]" :class="m.user === 'sender' ? 'text-white' : 'text-blue-600'">پاسخ به:</span>
-      <span class="truncate mt-0.5">{{ truncateText(m.reply_to.message) }}</span>
+      <div class="relative group max-w-xs md:max-w-md" :class="m.user === 'sender' ? 'self-end' : 'self-start'">
+
+        <div
+          @click.stop="toggleMessageMenu(index)"
+          class="flex flex-col rounded-2xl shadow-sm text-sm leading-relaxed cursor-pointer select-none active:opacity-90 transition-all overflow-hidden pb-1"
+          :class="[
+            m.user === 'sender'
+              ? 'bg-blue-600 text-white rounded-bl-none self-end'
+              : 'bg-white text-gray-800 rounded-br-none border border-gray-100 self-start'
+          ]"
+        >
+          <!-- نمایش پیام ریپلای شده -->
+          <div
+            v-if="m.reply_to"
+            class="text-xs px-3 py-1.5 border-r-4 mt-2 mx-2 rounded flex flex-col text-right overflow-hidden"
+            :class="m.user === 'sender'
+              ? 'bg-blue-700/40 border-white text-blue-100'
+              : 'bg-gray-100 border-blue-500 text-gray-500'"
+          >
+            <span class="font-bold text-[10px]" :class="m.user === 'sender' ? 'text-white' : 'text-blue-600'">پاسخ به:</span>
+            <span class="truncate mt-0.5">{{ truncateText(m.reply_to.message) }}</span>
+          </div>
+
+          <!-- متن اصلی پیام، نام فرستنده، زمان و وضعیت تیک -->
+          <div class="px-3 pt-2.5 pb-1 text-right relative min-w-[120px] break-words">
+
+            <!-- نام فرستنده در گروه -->
+            <div
+              v-if="room.type === 'group' && m.user === 'receiver' && m.sender_name"
+              class="text-[11px] font-bold text-blue-600 mb-1 leading-tight truncate max-w-full select-none"
+            >
+              {{ m.sender_name }}
+            </div>
+
+            <!-- متن پیام -->
+            <div class="whitespace-pre-wrap break-words">
+              {{ m.message }}
+            </div>
+
+            <!-- 🕒 بخش زمان و تیک سین (پایین سمت چپ/راست پیام) -->
+            <div
+              class="flex items-center justify-end gap-1 mt-1 text-[10px] select-none"
+              :class="m.user === 'sender' ? 'text-blue-100' : 'text-gray-400'"
+              dir="ltr"
+            >
+              <!-- ساعت ارسال -->
+              <span>{{ formatTime(m.created_at) }}</span>
+
+              <!-- وضعیت تیک (فقط برای فرستنده) -->
+              <template v-if="m.user === 'sender'">
+                <!-- دو تیک آبی -->
+                <svg v-if="m.is_read" class="w-3.5 h-3.5 text-sky-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7M10 17l4 4L23 9" />
+                </svg>
+                <!-- یک تیک -->
+                <svg v-else class="w-3.5 h-3.5 text-blue-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </template>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- منوی عملیات پیام -->
+        <div v-if="activeMenuIndex === index"
+          class="absolute top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl py-1 z-30 min-w-[110px]"
+          :class="m.user === 'sender' ? 'left-0' : 'right-0'"
+        >
+          <button @click="startReply(m)" class="w-full text-right px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+            <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+            پاسخ دادن
+          </button>
+          <button v-if="m.user === 'sender'" @click="deleteMessage(m, index)" class="w-full text-right px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2">
+            <svg class="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            حذف پیام
+          </button>
+        </div>
+      </div>
     </div>
 
-    <!-- متن اصلی پیام، نام فرستنده و وضعیت تیک -->
-    <div class="px-3 pt-2.5 pb-1.5 text-right relative min-w-[100px] break-words">
-
-      <!-- ✅ نام فرستنده در داخل باکس پدینگ‌دار با استایل استاندارد تلگرامی -->
-      <div
-        v-if="room.type === 'group' && m.user === 'receiver' && m.sender_name"
-        class="text-[11px] font-bold text-blue-600 mb-1 leading-tight truncate max-w-full select-none"
-      >
-        {{ m.sender_name }}
-      </div>
-
-      <!-- متن پیام -->
-      <div class="whitespace-pre-wrap break-words">
-        {{ m.message }}
-      </div>
-
-      <!-- بخش تیک سین (فقط برای فرستنده) -->
-      <div v-if="m.user === 'sender'" class="flex justify-end mt-1 text-[10px] opacity-80" dir="ltr">
-        <!-- دو تیک آبی (خوانده شده) -->
-        <svg v-if="m.is_read" class="w-4 h-4 text-sky-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7M10 17l4 4L23 9" />
-        </svg>
-        <!-- یک تیک خاکستری (ارسال شده اما خوانده نشده) -->
-        <svg v-else class="w-4 h-4 text-blue-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-        </svg>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- منوی عملیات پیام -->
-  <div v-if="activeMenuIndex === index"
-    class="absolute top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl py-1 z-30 min-w-[110px]"
-    :class="m.user === 'sender' ? 'left-0' : 'right-0'"
-  >
-    <button @click="startReply(m)" class="w-full text-right px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-      <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
-      پاسخ دادن
-    </button>
-    <button v-if="m.user === 'sender'" @click="deleteMessage(m, index)" class="w-full text-right px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2">
-      <svg class="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-      حذف پیام
-    </button>
-  </div>
+  </template>
 </div>
 
-      </div>
-    </div>
+
 
     <!-- دکمه شناور برای اسکرول به پایین‌ترین نقطه چت -->
     <button
@@ -271,6 +290,41 @@ const scrollToFirstUnread = async (unreadMessageId) => {
     })
 }
 
+
+
+// تابع فرمت ساعت (مثلاً: 14:30)
+const formatTime = (timestamp) => {
+    if (!timestamp) return ''
+    const date = new Date(timestamp)
+    return date.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
+}
+
+
+const formatDateLabel = (timestamp) => {
+    if (!timestamp) return ''
+    const date = new Date(timestamp)
+    const today = new Date()
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+
+
+    const isToday = date.toDateString() === today.toDateString()
+    const isYesterday = date.toDateString() === yesterday.toDateString()
+
+    if (isToday) return 'امروز'
+    if (isYesterday) return 'دیروز'
+
+    return date.toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' })
+}
+
+
+const shouldShowDateHeader = (index) => {
+    if (index === 0) return true
+    const currentDate = new Date(messages.value[index].created_at).toDateString()
+    const previousDate = new Date(messages.value[index - 1].created_at).toDateString()
+    return currentDate !== previousDate
+}
+
 // مانیتور کردن وضعیت اسکرول چت باکس
 const handleScroll = () => {
     if (!chatBox.value) return
@@ -294,7 +348,8 @@ const initMessages = () => {
             user: isSender ? 'sender' : 'receiver',
             sender_name: msg.sender ? msg.sender.name : (msg.sender_name || 'کاربر'), // دریافت نام فرستنده
             reply_to: msg.reply_to,
-            is_read: msg.is_read
+            is_read: msg.is_read,
+            created_at: msg.created_at || new Date().toISOString()
         }
     })
 
@@ -434,7 +489,8 @@ const send = async () => {
       message: text,
       user: 'sender',
       reply_to: replyPayload,
-      is_read: 0
+      is_read: 0,
+      created_at: new Date().toISOString()
     })
 
     scrollToBottom()
@@ -456,9 +512,40 @@ const send = async () => {
     }
 }
 
+const getCookie = (name) => {
+    const value = `; ${document.cookie}`
+    const parts = value.split(`; ${name}=`)
+    if (parts.length === 2) return decodeURIComponent(parts.pop().split(';').shift())
+    return null
+}
+
+const sendLastSeen = () => {
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+    const xsrfToken = getCookie('XSRF-TOKEN')
+
+    fetch('/user/last-seen', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-XSRF-TOKEN': xsrfToken || '',
+            'X-CSRF-TOKEN': csrfMeta || '',
+            'Accept': 'application/json',
+        },
+        credentials: 'same-origin',
+        keepalive: true
+    }).catch(err => console.error('خطای ثبت Last Seen:', err))
+}
+
+const handleVisibilityOrUnload = () => {
+    if (document.visibilityState === 'hidden') {
+        sendLastSeen()
+    }
+}
+
 onMounted(() => {
     initMessages()
     setupIntersectionObserver()
+    sendLastSeen()
 
 // ۱. گوش دادن به پیام‌های جدید
 Echo.private('message.' + props.room.id)
@@ -471,7 +558,9 @@ Echo.private('message.' + props.room.id)
             user: isSender ? 'sender' : 'receiver',
             sender_name: e.sender_name || (e.sender ? e.sender.name : 'کاربر'), // نام فرستنده از WebSocket
             reply_to: e.reply_to,
-            is_read: e.is_read
+            is_read: e.is_read,
+            created_at: e.created_at || new Date().toISOString()
+
         })
 
         attachObserverToMessages()
@@ -511,27 +600,36 @@ Echo.private('message.' + props.room.id)
         }
     })
 
+window.addEventListener('beforeunload', sendLastSeen)
+document.addEventListener('visibilitychange', handleVisibilityOrUnload)
+
 Echo.join(`chat.presence.${props.room.id}`)
         .here((users) => {
-
             onlineUsers.value = users
         })
         .joining((user) => {
-
             if (!onlineUsers.value.some(u => u.id === user.id)) {
                 onlineUsers.value.push(user)
             }
         })
-        .leaving((user) => {
+        .leaving((leavingUser) => {
+            onlineUsers.value = onlineUsers.value.filter(u => u.id !== leavingUser.id)
 
-            onlineUsers.value = onlineUsers.value.filter(u => u.id !== user.id)
+
+            if (props.other_user && leavingUser.id === props.other_user.id) {
+                props.other_user.last_seen_at = new Date().toISOString()
+            }
         })
         .error((error) => {
             console.error('خطای Presence Channel:', error)
-    })
+        })
 })
 
 onUnmounted(() => {
+    window.removeEventListener('beforeunload', sendLastSeen)
+    document.removeEventListener('visibilitychange', handleVisibilityOrUnload)
+
+    sendLastSeen()
     Echo.leave(`chat.presence.${props.room.id}`)
 })
 </script>

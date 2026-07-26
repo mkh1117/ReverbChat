@@ -2,158 +2,171 @@
   <div class="h-screen flex flex-col bg-slate-100 relative" @click="closeAllMenus">
 
     <!-- هدر چت -->
-    <header class="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 shadow-sm z-10">
+    <header class="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 shadow-sm z-10 cursor-pointer" @click.stop="openProfileModal">
       <!-- دکمه بازگشت -->
-        <a :href="route('dashboard')"
-            class="w-9 h-9 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-all">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
-        </a>
+      <a :href="route('dashboard')"
+         @click.stop
+         class="w-9 h-9 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-all">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      </a>
 
-      <!-- هدر چت -->
-<div class="flex flex-col flex-1">
-  <h2 class="font-bold text-gray-800 text-base leading-tight">{{ chat_name }}</h2>
-
-  <!-- نمایش وضعیت آنلاین / آفلاین / نوع روم -->
-  <div class="text-xs font-medium mt-0.5">
-
-    <!-- حالت ۱: کانال -->
-    <span v-if="room.type === 'channel'" class="text-gray-400">کانال عمومی</span>
-
-    <!-- حالت ۲: گروه -->
-    <span v-else-if="room.type === 'group'" class="text-gray-400">
-      {{ onlineUsers.length }} نفر آنلاین
-    </span>
-
-    <!-- حالت ۳: چت خصوصی (Direct) -->
-    <template v-else>
-      <span v-if="isPartnerOnline" class="text-green-500 flex items-center gap-1">
-        <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-        آنلاین
-      </span>
-      <span v-else class="text-gray-400">
-        آخرین بازدید {{ formatLastSeen(other_user?.last_seen_at) }}
-      </span>
-    </template>
-
-  </div>
-</div>
-    </header>
-
-    <!-- باکس پیام‌ها همراه با لیسنر اسکرول -->
-   <!-- باکس پیام‌ها همراه با لیسنر اسکرول -->
-<div
-  ref="chatBox"
-  @scroll="handleScroll"
-  class="flex-1 overflow-y-auto p-4 space-y-4 relative"
-  :class="{ 'scroll-smooth': isSmooth }"
->
-  <template v-for="(m, index) in messages" :key="m.id || index">
-
-    <!-- 📅 جداساز تاریخ روز -->
-    <div v-if="shouldShowDateHeader(index)" class="flex justify-center my-3 select-none">
-      <span class="bg-gray-200/80 backdrop-blur text-gray-600 text-[11px] font-medium px-3 py-1 rounded-full shadow-sm">
-        {{ formatDateLabel(m.created_at) }}
-      </span>
-    </div>
-
-    <!-- حباب پیام -->
-    <div
-      :id="'msg-' + m.id"
-      class="message-bubble flex flex-col w-full relative"
-      :data-msg-id="m.id"
-      :data-user="m.user"
-      :data-is-read="m.is_read"
-      :class="m.user === 'sender' ? 'items-left text-left' : 'items-right text-right'"
-    >
-      <div class="relative group max-w-xs md:max-w-md" :class="m.user === 'sender' ? 'self-end' : 'self-start'">
-
+      <!-- عکس پروفایل هدر -->
+      <div class="relative w-10 h-10 flex-shrink-0">
+        <img
+          v-if="currentRoomAvatar"
+          :src="currentRoomAvatar"
+          :alt="chat_name"
+          class="w-full h-full rounded-full object-cover border border-gray-200"
+        />
         <div
-          @click.stop="toggleMessageMenu(index)"
-          class="flex flex-col rounded-2xl shadow-sm text-sm leading-relaxed cursor-pointer select-none active:opacity-90 transition-all overflow-hidden pb-1"
-          :class="[
-            m.user === 'sender'
-              ? 'bg-blue-600 text-white rounded-bl-none self-end'
-              : 'bg-white text-gray-800 rounded-br-none border border-gray-100 self-start'
-          ]"
+          v-else
+          class="w-full h-full rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-sm"
         >
-          <!-- نمایش پیام ریپلای شده -->
-          <div
-            v-if="m.reply_to"
-            class="text-xs px-3 py-1.5 border-r-4 mt-2 mx-2 rounded flex flex-col text-right overflow-hidden"
-            :class="m.user === 'sender'
-              ? 'bg-blue-700/40 border-white text-blue-100'
-              : 'bg-gray-100 border-blue-500 text-gray-500'"
-          >
-            <span class="font-bold text-[10px]" :class="m.user === 'sender' ? 'text-white' : 'text-blue-600'">پاسخ به:</span>
-            <span class="truncate mt-0.5">{{ truncateText(m.reply_to.message) }}</span>
-          </div>
-
-          <!-- متن اصلی پیام، نام فرستنده، زمان و وضعیت تیک -->
-          <div class="px-3 pt-2.5 pb-1 text-right relative min-w-[120px] break-words">
-
-            <!-- نام فرستنده در گروه -->
-            <div
-              v-if="room.type === 'group' && m.user === 'receiver' && m.sender_name"
-              class="text-[11px] font-bold text-blue-600 mb-1 leading-tight truncate max-w-full select-none"
-            >
-              {{ m.sender_name }}
-            </div>
-
-            <!-- متن پیام -->
-            <div class="whitespace-pre-wrap break-words">
-              {{ m.message }}
-            </div>
-
-            <!-- 🕒 بخش زمان و تیک سین (پایین سمت چپ/راست پیام) -->
-            <div
-              class="flex items-center justify-end gap-1 mt-1 text-[10px] select-none"
-              :class="m.user === 'sender' ? 'text-blue-100' : 'text-gray-400'"
-              dir="ltr"
-            >
-              <!-- ساعت ارسال -->
-              <span>{{ formatTime(m.created_at) }}</span>
-
-              <!-- وضعیت تیک (فقط برای فرستنده) -->
-              <template v-if="m.user === 'sender'">
-                <!-- دو تیک آبی -->
-                <svg v-if="m.is_read" class="w-3.5 h-3.5 text-sky-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7M10 17l4 4L23 9" />
-                </svg>
-                <!-- یک تیک -->
-                <svg v-else class="w-3.5 h-3.5 text-blue-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              </template>
-            </div>
-
-          </div>
+          {{ getInitials(chat_name) }}
         </div>
 
-        <!-- منوی عملیات پیام -->
-        <div v-if="activeMenuIndex === index"
-          class="absolute top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl py-1 z-30 min-w-[110px]"
-          :class="m.user === 'sender' ? 'left-0' : 'right-0'"
-        >
-          <button @click="startReply(m)" class="w-full text-right px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-            <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
-            پاسخ دادن
-          </button>
-          <button v-if="m.user === 'sender'" @click="deleteMessage(m, index)" class="w-full text-right px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2">
-            <svg class="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-            حذف پیام
-          </button>
+        <span
+          v-if="room.type === 'direct' && isPartnerOnline"
+          class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"
+        ></span>
+      </div>
+
+      <!-- عنوان و وضعیت چت -->
+      <div class="flex flex-col flex-1 min-w-0">
+        <h2 class="font-bold text-gray-800 text-base leading-tight truncate">{{ chat_name }}</h2>
+
+        <div class="text-xs font-medium mt-0.5">
+          <span v-if="room.type === 'channel'" class="text-gray-400">کانال عمومی</span>
+          <span v-else-if="room.type === 'group'" class="text-gray-400">
+            {{ roomMembers.length || onlineUsers.length }} عضو ، {{ onlineUsers.length }} آنلاین
+          </span>
+          <template v-else>
+            <span v-if="isPartnerOnline" class="text-green-500 flex items-center gap-1">
+              آنلاین
+            </span>
+            <span v-else class="text-gray-400">
+              آخرین بازدید {{ formatLastSeen(other_user?.last_seen_at) }}
+            </span>
+          </template>
         </div>
       </div>
+    </header>
+
+    <!-- باکس پیام‌ها -->
+    <div
+      ref="chatBox"
+      @scroll="handleScroll"
+      class="flex-1 overflow-y-auto p-4 space-y-4 relative"
+      :class="{ 'scroll-smooth': isSmooth }"
+    >
+      <template v-for="(m, index) in messages" :key="m.id || index">
+
+        <!-- 📅 جداساز تاریخ روز -->
+        <div v-if="shouldShowDateHeader(index)" class="flex justify-center my-3 select-none">
+          <span class="bg-gray-200/80 backdrop-blur text-gray-600 text-[11px] font-medium px-3 py-1 rounded-full shadow-sm">
+            {{ formatDateLabel(m.created_at) }}
+          </span>
+        </div>
+
+        <!-- حباب پیام -->
+        <div
+          :id="'msg-' + m.id"
+          class="message-bubble flex gap-2 w-full relative"
+          :data-msg-id="m.id"
+          :data-user="m.user"
+          :data-is-read="m.is_read"
+          :class="m.user === 'sender' ? 'flex-row-reverse' : 'flex-row'"
+        >
+          <!-- آواتار فرستنده -->
+          <div v-if="m.user === 'receiver'" class="w-8 h-8 rounded-full flex-shrink-0 self-end mb-1">
+            <img
+              v-if="m.sender_avatar || (room.type === 'direct' && other_user?.avatar)"
+              :src="m.sender_avatar || other_user?.avatar"
+              class="w-full h-full rounded-full object-cover border border-gray-200"
+            />
+            <div
+              v-else
+              class="w-full h-full rounded-full bg-slate-400 text-white flex items-center justify-center text-xs font-bold"
+            >
+              {{ getInitials(m.sender_name) }}
+            </div>
+          </div>
+
+          <div class="relative group max-w-xs md:max-w-md" :class="m.user === 'sender' ? 'self-end' : 'self-start'">
+            <div
+              @click.stop="toggleMessageMenu(index)"
+              class="flex flex-col rounded-2xl shadow-sm text-sm leading-relaxed cursor-pointer select-none active:opacity-90 transition-all overflow-hidden pb-1"
+              :class="[
+                m.user === 'sender'
+                  ? 'bg-blue-600 text-white rounded-bl-none self-end'
+                  : 'bg-white text-gray-800 rounded-br-none border border-gray-100 self-start'
+              ]"
+            >
+              <div
+                v-if="m.reply_to"
+                class="text-xs px-3 py-1.5 border-r-4 mt-2 mx-2 rounded flex flex-col text-right overflow-hidden"
+                :class="m.user === 'sender'
+                  ? 'bg-blue-700/40 border-white text-blue-100'
+                  : 'bg-gray-100 border-blue-500 text-gray-500'"
+              >
+                <span class="font-bold text-[10px]" :class="m.user === 'sender' ? 'text-white' : 'text-blue-600'">پاسخ به:</span>
+                <span class="truncate mt-0.5">{{ truncateText(m.reply_to.message) }}</span>
+              </div>
+
+              <div class="px-3 pt-2.5 pb-1 text-right relative min-w-[120px] break-words">
+                <div
+                  v-if="room.type === 'group' && m.user === 'receiver' && m.sender_name"
+                  class="text-[11px] font-bold text-blue-600 mb-1 leading-tight truncate max-w-full select-none"
+                >
+                  {{ m.sender_name }}
+                </div>
+
+                <div class="whitespace-pre-wrap break-words">
+                  {{ m.message }}
+                </div>
+
+                <div
+                  class="flex items-center justify-end gap-1 mt-1 text-[10px] select-none"
+                  :class="m.user === 'sender' ? 'text-blue-100' : 'text-gray-400'"
+                  dir="ltr"
+                >
+                  <span>{{ formatTime(m.created_at) }}</span>
+
+                  <template v-if="m.user === 'sender'">
+                    <svg v-if="m.is_read" class="w-3.5 h-3.5 text-sky-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7M10 17l4 4L23 9" />
+                    </svg>
+                    <svg v-else class="w-3.5 h-3.5 text-blue-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </template>
+                </div>
+              </div>
+            </div>
+
+            <!-- منوی منوی عملیات پیام -->
+            <div v-if="activeMenuIndex === index"
+              class="absolute top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl py-1 z-30 min-w-[110px]"
+              :class="m.user === 'sender' ? 'left-0' : 'right-0'"
+            >
+              <button @click="startReply(m)" class="w-full text-right px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+                پاسخ دادن
+              </button>
+              <button v-if="m.user === 'sender'" @click="deleteMessage(m, index)" class="w-full text-right px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2">
+                <svg class="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                حذف پیام
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </template>
     </div>
 
-  </template>
-</div>
-
-
-
-    <!-- دکمه شناور برای اسکرول به پایین‌ترین نقطه چت -->
+    <!-- دکمه اسکرول به پایین -->
     <button
       v-if="showScrollDownBtn"
       @click="scrollToBottom"
@@ -164,54 +177,193 @@
       </svg>
     </button>
 
-   <!-- نوار پایین -->
-<div class="p-3 bg-white border-t border-gray-200 flex flex-col gap-2 z-10">
+    <!-- نوار پایین -->
+    <div class="p-3 bg-white border-t border-gray-200 flex flex-col gap-2 z-10">
+      <template v-if="canSendMessage">
+        <div v-if="replyingTo" class="flex items-center justify-between bg-blue-50 border-r-4 border-blue-500 px-3 py-2 rounded-lg w-full text-xs">
+          <div class="flex flex-col text-right overflow-hidden">
+            <span class="font-bold text-blue-600">پاسخ به پیام</span>
+            <span class="text-gray-500 truncate mt-0.5">{{ replyingTo.message }}</span>
+          </div>
+          <button @click="cancelReply" class="text-gray-400 hover:text-gray-600 p-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
 
-  <!-- حالت ۱: کاربر دسترسی ارسال پیام دارد -->
-  <template v-if="canSendMessage">
-    <!-- باکس پیش‌نمایش ریپلای -->
-    <div v-if="replyingTo" class="flex items-center justify-between bg-blue-50 border-r-4 border-blue-500 px-3 py-2 rounded-lg w-full text-xs animate-fade-in">
-      <div class="flex flex-col text-right overflow-hidden">
-        <span class="font-bold text-blue-600">پاسخ به پیام</span>
-        <span class="text-gray-500 truncate mt-0.5">{{ replyingTo.message }}</span>
+        <div class="flex items-center gap-2">
+          <button
+            @click="send"
+            :disabled="!newMessage.trim()"
+            class="bg-blue-600 text-white rotate-90 p-3 rounded-2xl hover:bg-blue-700 active:scale-95 disabled:opacity-40 disabled:scale-100 transition-all flex items-center justify-center shadow-md shadow-blue-500/20"
+          >
+            <svg class="w-5 h-5 transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" stroke-width="2" />
+            </svg>
+          </button>
+          <div class="flex-1 relative flex items-center" dir="rtl">
+            <input
+              type="text"
+              v-model="newMessage"
+              @keyup.enter="send"
+              placeholder="پیام خود را بنویسید..."
+              class="w-full bg-gray-50 text-sm text-gray-800 border-0 rounded-2xl px-4 py-3 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-gray-400"
+            >
+          </div>
+        </div>
+      </template>
+
+      <template v-else>
+        <div class="w-full py-2.5 text-center text-xs font-medium text-gray-500 bg-gray-100 rounded-2xl select-none">
+          فقط مدیران این کانال می‌توانند پیام ارسال کنند
+        </div>
+      </template>
+    </div>
+
+    <!-- 👤 مودال پروفایل و مدیریت گروه -->
+    <div
+      v-if="showProfileModal"
+      class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      @click.self="closeProfileModal"
+    >
+      <div class="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] transform transition-all animate-fade-in">
+
+        <!-- هدر مودال -->
+        <div class="bg-gradient-to-b from-blue-600 to-blue-500 pt-8 pb-6 px-6 flex flex-col items-center relative text-white flex-shrink-0">
+          <button
+            @click="closeProfileModal"
+            class="absolute top-4 left-4 text-white/80 hover:text-white p-1 rounded-full bg-white/10 hover:bg-white/20 transition-all"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+
+          <!-- عکس آواتار با قابلیت ویرایش/حذف برای ادمین -->
+          <div class="relative group w-24 h-24 rounded-full border-4 border-white/20 shadow-lg overflow-hidden mb-3">
+            <img
+              v-if="currentRoomAvatar"
+              :src="currentRoomAvatar"
+              :alt="chat_name"
+              class="w-full h-full object-cover"
+            />
+            <div v-else class="w-full h-full bg-white/20 flex items-center justify-center font-bold text-2xl text-white">
+              {{ getInitials(chat_name) }}
+            </div>
+
+            <!-- دکمه‌های مدیریت تصویر (فقط ادمین/مالک در گروه یا کانال) -->
+            <div
+              v-if="canManageGroup"
+              class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2"
+            >
+              <!-- آپلود عکس -->
+              <label class="p-2 bg-white/20 hover:bg-white/40 rounded-full cursor-pointer text-white transition-all">
+                <input type="file" ref="fileInput" accept="image/*" class="hidden" @change="uploadAvatar" />
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><circle cx="12" cy="13" r="3"/></svg>
+              </label>
+
+              <!-- حذف عکس -->
+              <button
+                v-if="currentRoomAvatar"
+                @click="removeAvatar"
+                class="p-2 bg-red-500/80 hover:bg-red-600 rounded-full text-white transition-all"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <h3 class="text-lg font-bold text-white text-center">{{ chat_name }}</h3>
+          <p v-if="room.type === 'direct' && other_user?.username" class="text-xs text-blue-100 mt-0.5">@{{ other_user.username }}</p>
+        </div>
+
+        <!-- بدنه مودال (بایو و اعضا) -->
+        <div class="p-5 space-y-5 text-right overflow-y-auto flex-1" dir="rtl">
+
+          <!-- ویرایش/نمایش بایو -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-gray-400">بیوگرافی (توضیحات)</span>
+              <button
+                v-if="canManageGroup && !isEditingBio"
+                @click="isEditingBio = true"
+                class="text-xs text-blue-600 font-medium hover:underline"
+              >
+                ویرایش
+              </button>
+            </div>
+
+            <!-- حالت ویرایش بایو -->
+            <div v-if="isEditingBio" class="space-y-2">
+              <textarea
+                v-model="bioInput"
+                rows="3"
+                class="w-full text-xs text-gray-700 bg-gray-50 border border-blue-300 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="توضیحات گروه را وارد کنید..."
+              ></textarea>
+              <div class="flex justify-end gap-2">
+                <button @click="isEditingBio = false" class="px-3 py-1 text-xs text-gray-500 hover:bg-gray-100 rounded-lg">انصراف</button>
+                <button @click="saveBio" :disabled="isSavingBio" class="px-3 py-1 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                  {{ isSavingBio ? 'در حال ثبت...' : 'ذخیره' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- حالت نمایش بایو -->
+            <p v-else class="text-sm text-gray-700 leading-relaxed bg-gray-50 p-3 rounded-2xl border border-gray-100 whitespace-pre-line">
+              {{ currentBio }}
+            </p>
+          </div>
+
+          <!-- لیست کاربران (فقط برای گروه) -->
+          <div v-if="room.type === 'group'" class="space-y-2">
+            <div class="flex items-center justify-between border-b border-gray-100 pb-2">
+              <span class="text-xs font-semibold text-gray-400">اعضای گروه</span>
+              <span class="text-xs bg-blue-50 text-blue-600 font-bold px-2 py-0.5 rounded-full">
+                {{ roomMembers.length }} نفر
+              </span>
+            </div>
+
+            <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
+              <div
+                v-for="member in roomMembers"
+                :key="member.id"
+                class="flex items-center justify-between py-1.5 px-2 hover:bg-gray-50 rounded-xl transition-all"
+              >
+                <div class="flex items-center gap-2.5 min-w-0">
+                  <div class="w-8 h-8 rounded-full overflow-hidden bg-slate-200 flex-shrink-0">
+                    <img v-if="member.avatar" :src="member.avatar" class="w-full h-full object-cover" />
+                    <div v-else class="w-full h-full bg-blue-500 text-white text-xs font-bold flex items-center justify-center">
+                      {{ getInitials(member.name) }}
+                    </div>
+                  </div>
+                  <div class="flex flex-col min-w-0">
+                    <span class="text-xs font-medium text-gray-800 truncate">{{ member.name }}</span>
+                    <span class="text-[10px]" :class="isUserOnline(member.id) ? 'text-green-500' : 'text-gray-400'">
+                      {{ isUserOnline(member.id) ? 'آنلاین' : 'آفلاین' }}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- نشان نقش کاربر -->
+                <span
+                  v-if="member.role === 'owner'"
+                  class="text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200 px-2 py-0.5 rounded-md"
+                >
+                  مالک
+                </span>
+                <span
+                  v-else-if="member.role === 'admin'"
+                  class="text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-md"
+                >
+                  مدیر
+                </span>
+              </div>
+            </div>
+          </div>
+
+        </div>
       </div>
-      <button @click="cancelReply" class="text-gray-400 hover:text-gray-600 p-1">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-      </button>
     </div>
 
-    <!-- فیلد اصلی ارسال پیام -->
-    <div class="flex items-center gap-2">
-      <button
-        @click="send"
-        :disabled="!newMessage.trim()"
-        class="bg-blue-600 text-white rotate-90 p-3 rounded-2xl hover:bg-blue-700 active:scale-95 disabled:opacity-40 disabled:scale-100 transition-all flex items-center justify-center shadow-md shadow-blue-500/20"
-      >
-        <svg class="w-5 h-5 transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" stroke-width="2" />
-        </svg>
-      </button>
-      <div class="flex-1 relative flex items-center" dir="rtl">
-        <input
-          type="text"
-          v-model="newMessage"
-          @keyup.enter="send"
-          placeholder="پیام خود را بنویسید..."
-          class="w-full bg-gray-50 text-sm text-gray-800 border-0 rounded-2xl px-4 py-3 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-gray-400"
-        >
-      </div>
-    </div>
-  </template>
-
-  <!-- حالت ۲: کاربر دسترسی ارسال پیام ندارد (کانال) -->
-  <template v-else>
-    <div class="w-full py-2.5 text-center text-xs font-medium text-gray-500 bg-gray-100 rounded-2xl select-none">
-      فقط مدیران این کانال می‌توانند پیام ارسال کنند
-    </div>
-  </template>
-
-    </div>
-</div>
+  </div>
 </template>
 
 <script setup>
@@ -238,15 +390,101 @@ const isSmooth = ref(false)
 
 const activeMenuIndex = ref(null)
 const replyingTo = ref(null)
-
 const onlineUsers = ref([])
 
+// وضعیت مودال پروفایل و ویرایش اطلاعات
+const showProfileModal = ref(false)
+const isEditingBio = ref(false)
+const isSavingBio = ref(false)
+const bioInput = ref('')
+const fileInput = ref(null)
+
+// حالت‌های لوکال برای به‌روزرسانی سریع عکس و بایو در UI
+const currentRoomAvatar = ref('')
+const currentBio = ref('')
+const roomMembers = ref([])
+
+// بررسی دسترسی ویرایش برای ادمین یا مالکین گروه
+const canManageGroup = computed(() => {
+    if (props.room.type === 'private') return false
+
+    return ['owner', 'admin'].includes(props.user_role)
+})
 
 const isPartnerOnline = computed(() => {
     if (!props.other_user) return false
     return onlineUsers.value.some(u => u.id === props.other_user.id)
 })
 
+const isUserOnline = (userId) => {
+    return onlineUsers.value.some(u => u.id === userId)
+}
+
+const openProfileModal = () => {
+    showProfileModal.value = true
+}
+
+const closeProfileModal = () => {
+    showProfileModal.value = false
+    isEditingBio.value = false
+}
+
+// آپلود عکس پروفایل گروه
+const uploadAvatar = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    const formData = new FormData()
+    formData.append('avatar', file)
+
+    try {
+        const res = await axios.post(`/chat/rooms/${props.room.id}/update-info`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        })
+        if (res.data && res.data.avatar) {
+            currentRoomAvatar.value = res.data.avatar
+        }
+    } catch (err) {
+        console.error('خطا در آپلود عکس:', err)
+    }
+}
+
+// حذف عکس گروه
+const removeAvatar = async () => {
+    try {
+        await axios.delete(`/chat/rooms/${props.room.id}/remove-avatar`)
+        currentRoomAvatar.value = null
+    } catch (err) {
+        console.error('خطا در حذف عکس:', err)
+    }
+}
+
+// ذخیره بایو جدید
+const saveBio = async () => {
+    if (isSavingBio.value) return
+    isSavingBio.value = true
+
+    try {
+        await axios.post(`/chat/rooms/${props.room.id}/update-info`, {
+            description: bioInput.value
+        })
+        currentBio.value = bioInput.value
+        isEditingBio.value = false
+    } catch (err) {
+        console.error('خطا در ثبت توضیحات:', err)
+    } finally {
+        isSavingBio.value = false
+    }
+}
+
+const getInitials = (name) => {
+    if (!name) return '?'
+    const parts = name.trim().split(' ')
+    if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase()
+    }
+    return name.substring(0, 2).toUpperCase()
+}
 
 const formatLastSeen = (timestamp) => {
     if (!timestamp) return 'اخیر'
@@ -254,12 +492,10 @@ const formatLastSeen = (timestamp) => {
     return date.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
 }
 
-//کنترل دسترسی ها در کانال
 const canSendMessage = computed(() => {
     if (props.room.type !== 'channel') {
         return true
     }
-
     return ['owner', 'admin'].includes(props.user_role)
 })
 
@@ -270,9 +506,8 @@ const scrollToBottom = async () => {
     }
 }
 
-// اسکرول اختصاصی به اولین پیام خوانده نشده
 const scrollToFirstUnread = async (unreadMessageId) => {
-    isSmooth.value = false // غیرفعال کردن اسکرول نرم برای لود اولیه
+    isSmooth.value = false
     await nextTick()
 
     requestAnimationFrame(() => {
@@ -283,22 +518,17 @@ const scrollToFirstUnread = async (unreadMessageId) => {
             scrollToBottom()
         }
 
-        // بعد از اینکه اسکرول اولیه انجام شد، اسکرول نرم را برای پیام‌های بعدی فعال می‌کنیم
         setTimeout(() => {
             isSmooth.value = true
         }, 100)
     })
 }
 
-
-
-// تابع فرمت ساعت (مثلاً: 14:30)
 const formatTime = (timestamp) => {
     if (!timestamp) return ''
     const date = new Date(timestamp)
     return date.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
 }
-
 
 const formatDateLabel = (timestamp) => {
     if (!timestamp) return ''
@@ -306,7 +536,6 @@ const formatDateLabel = (timestamp) => {
     const today = new Date()
     const yesterday = new Date(today)
     yesterday.setDate(yesterday.getDate() - 1)
-
 
     const isToday = date.toDateString() === today.toDateString()
     const isYesterday = date.toDateString() === yesterday.toDateString()
@@ -317,7 +546,6 @@ const formatDateLabel = (timestamp) => {
     return date.toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
-
 const shouldShowDateHeader = (index) => {
     if (index === 0) return true
     const currentDate = new Date(messages.value[index].created_at).toDateString()
@@ -325,7 +553,6 @@ const shouldShowDateHeader = (index) => {
     return currentDate !== previousDate
 }
 
-// مانیتور کردن وضعیت اسکرول چت باکس
 const handleScroll = () => {
     if (!chatBox.value) return
     const { scrollTop, scrollHeight, clientHeight } = chatBox.value
@@ -334,6 +561,17 @@ const handleScroll = () => {
 
 const initMessages = () => {
     let firstUnreadId = null
+
+    // مقداردهی حالت اولیه روم
+    if (props.room.type === 'direct') {
+        currentRoomAvatar.value = props.other_user?.avatar || null
+        currentBio.value = props.other_user?.bio || 'بیوگرافی تنظیم نشده است.'
+    } else {
+        currentRoomAvatar.value = props.room.avatar || null
+        currentBio.value = props.room.description || 'توضیحاتی برای این روم درج نشده است.'
+        roomMembers.value = props.room.users || []
+    }
+    bioInput.value = currentBio.value
 
     messages.value = props.chats.map(msg => {
         const isSender = msg.sender_id === props.user.id
@@ -346,7 +584,8 @@ const initMessages = () => {
             id: msg.id,
             message: msg.message,
             user: isSender ? 'sender' : 'receiver',
-            sender_name: msg.sender ? msg.sender.name : (msg.sender_name || 'کاربر'), // دریافت نام فرستنده
+            sender_name: msg.sender ? msg.sender.name : (msg.sender_name || 'کاربر'),
+            sender_avatar: msg.sender ? msg.sender.avatar : msg.sender_avatar,
             reply_to: msg.reply_to,
             is_read: msg.is_read,
             created_at: msg.created_at || new Date().toISOString()
@@ -363,14 +602,13 @@ const initMessages = () => {
     }
 }
 
-// تغییر متد برای ارسال آی‌دی پیام‌های خاصی که دیده شده‌اند
 const markAsRead = async (messageIds) => {
     if (!messageIds || messageIds.length === 0) return
 
     try {
         axios.defaults.headers.common["X-Socket-Id"] = Echo.socketId()
         await axios.post(`/chat/${props.room.id}/read`, {
-            message_ids: messageIds // آرایه‌ای از آی‌دی پیام‌هایی که کاربر واقعاً دیده است
+            message_ids: messageIds
         })
     } catch (e) {
         console.error('خطا در به‌روزرسانی وضعیت سین پیام‌ها:', e)
@@ -413,13 +651,13 @@ const deleteMessage = async (message, index) => {
 }
 
 let observer = null
-const pendingReadIds = new Set() // برای جمع‌آوری آی‌دی پیام‌های خوانده شده
+const pendingReadIds = new Set()
 let readTimeout = null
 
 const setupIntersectionObserver = () => {
     const options = {
         root: chatBox.value,
-        threshold: 0.1 // کاهش آستانه به 10% جهت تشخیص سریع‌تر پیام در صفحه
+        threshold: 0.1
     }
 
     observer = new IntersectionObserver((entries) => {
@@ -429,7 +667,6 @@ const setupIntersectionObserver = () => {
                 const isReceiver = entry.target.getAttribute('data-user') === 'receiver'
                 const isUnread = entry.target.getAttribute('data-is-read') === '0' || entry.target.getAttribute('data-is-read') === 'false' || entry.target.getAttribute('data-is-read') === false
 
-                console.log("id:",msgId,"---isReceiver",isReceiver,"--isUnread",isUnread)
                 if (msgId && isReceiver && isUnread) {
                     pendingReadIds.add(Number(msgId))
 
@@ -437,10 +674,8 @@ const setupIntersectionObserver = () => {
                     readTimeout = setTimeout(() => {
                         if (pendingReadIds.size > 0) {
                             const idsToSend = Array.from(pendingReadIds)
-                            console.log('👁️ پیام‌های زیر خوانده شدند (ارسال به سرور):', idsToSend)
                             markAsRead(idsToSend)
 
-                            // آپدیت موقت وضعیت در فرانت تا قبل از پاسخ ایونت
                             messages.value.forEach(m => {
                                 if (idsToSend.includes(m.id)) {
                                     m.is_read = 1
@@ -461,14 +696,11 @@ const setupIntersectionObserver = () => {
 const attachObserverToMessages = () => {
     if (!observer) return
 
-    // استفاده از nextTick و انیمیشن فریم مرورگر برای اطمینان از رندر کامل تگ‌ها در DOM
     nextTick(() => {
         requestAnimationFrame(() => {
             const messageElements = chatBox.value?.querySelectorAll('.message-bubble')
             messageElements?.forEach(el => {
-                // ابتدا رصد قبلی را قطع می‌کنیم تا تداخل ایجاد نشود
                 observer.unobserve(el)
-                // مجدداً رصد را شروع می‌کنیم
                 observer.observe(el)
             })
         })
@@ -497,16 +729,10 @@ const send = async () => {
 
     try {
         axios.defaults.headers.common["X-Socket-Id"] = Echo.socketId()
-        const res = await axios.post(`/chat/${props.room.id}/messages`, {
+        await axios.post(`/chat/${props.room.id}/messages`, {
             message: text,
             reply_to_id: replyPayload ? replyPayload.id : null
         })
-        // if (res.data && res.data.message_id) {
-        //     const targetMsg = messages.value.find(m => m.id === tempId)
-        //     if (targetMsg) {
-        //         targetMsg.id = res.data.message_id
-        //     }
-        // }
     } catch(e) {
         console.error('خطا در ارسال:', e)
     }
@@ -547,63 +773,59 @@ onMounted(() => {
     setupIntersectionObserver()
     sendLastSeen()
 
-// ۱. گوش دادن به پیام‌های جدید
-Echo.private('message.' + props.room.id)
-    .listen('MessageEvent', (e) => {
-        const isSender = e.sender_id === props.user.id;
+    Echo.private('message.' + props.room.id)
+        .listen('MessageEvent', (e) => {
+            const isSender = e.sender_id === props.user.id;
 
-        messages.value.push({
-            id: e.id,
-            message: e.message,
-            user: isSender ? 'sender' : 'receiver',
-            sender_name: e.sender_name || (e.sender ? e.sender.name : 'کاربر'), // نام فرستنده از WebSocket
-            reply_to: e.reply_to,
-            is_read: e.is_read,
-            created_at: e.created_at || new Date().toISOString()
+            messages.value.push({
+                id: e.id,
+                message: e.message,
+                user: isSender ? 'sender' : 'receiver',
+                sender_name: e.sender_name || (e.sender ? e.sender.name : 'کاربر'),
+                sender_avatar: e.sender_avatar || (e.sender ? e.sender.avatar : null),
+                reply_to: e.reply_to,
+                is_read: e.is_read,
+                created_at: e.created_at || new Date().toISOString()
+            })
 
+            attachObserverToMessages()
+
+            if (!showScrollDownBtn.value || isSender) {
+                scrollToBottom()
+            }
+
+            if (!isSender) {
+                nextTick(() => {
+                    if (!showScrollDownBtn.value) {
+                        setTimeout(() => {
+                            markAsRead([e.id]);
+                        }, 200);
+                    }
+                })
+            }
         })
 
-        attachObserverToMessages()
+    Echo.private('message.' + props.room.id)
+        .listen('MessagesReadEvent', (e) => {
+            if (e.message_ids && Array.isArray(e.message_ids)) {
+                messages.value.forEach(msg => {
+                    if (msg.user === 'sender' && e.message_ids.includes(msg.id)) {
+                        msg.is_read = 1;
+                    }
+                })
+            } else {
+                messages.value.forEach(msg => {
+                    if (msg.user === 'sender') {
+                        msg.is_read = 1;
+                    }
+                })
+            }
+        })
 
-        if (!showScrollDownBtn.value || isSender) {
-            scrollToBottom()
-        }
+    window.addEventListener('beforeunload', sendLastSeen)
+    document.addEventListener('visibilitychange', handleVisibilityOrUnload)
 
-        if (!isSender) {
-            nextTick(() => {
-                if (!showScrollDownBtn.value) {
-                    setTimeout(() => {
-                        markAsRead([e.id]);
-                    }, 200);
-                }
-            })
-        }
-    })
-
-   // ۲. گوش دادن به رویداد سین خوردن پیام‌ها
-Echo.private('message.' + props.room.id)
-    .listen('MessagesReadEvent', (e) => {
-        // مطمئن شوید متغیر آرایه در ایونت لاراول وجود دارد
-        if (e.message_ids && Array.isArray(e.message_ids)) {
-            messages.value.forEach(msg => {
-                if (msg.user === 'sender' && e.message_ids.includes(msg.id)) {
-                    msg.is_read = 1; // تیک آبی فعال می‌شود
-                }
-            })
-        } else {
-            // حالت زاپاس اگر کل چت خوانده شده باشد
-            messages.value.forEach(msg => {
-                if (msg.user === 'sender') {
-                    msg.is_read = 1;
-                }
-            })
-        }
-    })
-
-window.addEventListener('beforeunload', sendLastSeen)
-document.addEventListener('visibilitychange', handleVisibilityOrUnload)
-
-Echo.join(`chat.presence.${props.room.id}`)
+    Echo.join(`chat.presence.${props.room.id}`)
         .here((users) => {
             onlineUsers.value = users
         })
@@ -614,7 +836,6 @@ Echo.join(`chat.presence.${props.room.id}`)
         })
         .leaving((leavingUser) => {
             onlineUsers.value = onlineUsers.value.filter(u => u.id !== leavingUser.id)
-
 
             if (props.other_user && leavingUser.id === props.other_user.id) {
                 props.other_user.last_seen_at = new Date().toISOString()

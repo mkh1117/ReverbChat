@@ -134,7 +134,7 @@ public function store(Request $request)
     }
 
     public function updateLastSeen(Request $request) {
-
+        Log::error('resid');
         $user = $request->user();
         $userId = Auth::id();
         if(! $user){

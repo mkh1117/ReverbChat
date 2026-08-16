@@ -5,6 +5,7 @@ use App\Events\MessagesReadEvent;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\auth\AuthenticatedSessionController;
 use App\Http\Controllers\RoomController;
+use App\Http\Controllers\UpdateInfoController;
 use App\Models\chat;
 use App\Models\Room;
 use App\Models\room_user;
@@ -21,6 +22,8 @@ Route::get('/main',[RoomController::class,'main'])->middleware('auth');
 Route::get('/chat/{room_id}', [RoomController::class, 'show'])->name("test")->middleware('auth');
 Route::post('/rooms/create', [RoomController::class, 'store'])->middleware('auth');
 Route::post('/user/last-seen', [RoomController::class, 'updateLastSeen'])->name('user.last-seen')->middleware('auth');
+
+Route::post('/chat/rooms/{room_id}/update-avatar',[UpdateInfoController::class,'updateAvatar'])->name('update_avatar')->middleware(['auth','chat.admin']);
 
 Route::post('/chat/{room_id}/messages', function (Request $request, $room_id) {
     $userId = Auth::id();

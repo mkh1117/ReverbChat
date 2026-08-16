@@ -235,40 +235,72 @@
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
+<!-- بخش آواتار در مودال پروفایل -->
+<div class="relative group w-24 h-24 rounded-full border-4 border-white/20 shadow-lg overflow-hidden mb-3">
+  <img
+    v-if="avatarPreviewUrl || currentRoomAvatar"
+    :src="avatarPreviewUrl || currentRoomAvatar"
+    :alt="chat_name"
+    class="w-full h-full object-cover"
+  />
+  <div v-else class="w-full h-full bg-white/20 flex items-center justify-center font-bold text-2xl text-white">
+    {{ getInitials(chat_name) }}
+  </div>
 
-          <!-- عکس آواتار با قابلیت ویرایش/حذف برای ادمین -->
-          <div class="relative group w-24 h-24 rounded-full border-4 border-white/20 shadow-lg overflow-hidden mb-3">
-            <img
-              v-if="currentRoomAvatar"
-              :src="currentRoomAvatar"
-              :alt="chat_name"
-              class="w-full h-full object-cover"
-            />
-            <div v-else class="w-full h-full bg-white/20 flex items-center justify-center font-bold text-2xl text-white">
-              {{ getInitials(chat_name) }}
-            </div>
+  <!-- دکمه‌های مدیریت تصویر (فقط ادمین/مالک) -->
+  <div
+    v-if="canManageGroup"
+    class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2"
+  >
+    <!-- انتخاب عکس -->
+    <label class="p-2 bg-white/20 hover:bg-white/40 rounded-full cursor-pointer text-white transition-all" title="تغییر تصویر">
+      <input type="file" ref="fileInput" accept="image/*" class="hidden" @change="onFileSelected" />
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><circle cx="12" cy="13" r="3"/></svg>
+    </label>
 
-            <!-- دکمه‌های مدیریت تصویر (فقط ادمین/مالک در گروه یا کانال) -->
-            <div
-              v-if="canManageGroup"
-              class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2"
-            >
-              <!-- آپلود عکس -->
-              <label class="p-2 bg-white/20 hover:bg-white/40 rounded-full cursor-pointer text-white transition-all">
-                <input type="file" ref="fileInput" accept="image/*" class="hidden" @change="uploadAvatar" />
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><circle cx="12" cy="13" r="3"/></svg>
-              </label>
+    <!-- حذف عکس -->
+    <button
+      v-if="currentRoomAvatar"
+      @click="removeAvatar"
+      class="p-2 bg-red-500/80 hover:bg-red-600 rounded-full text-white transition-all"
+      title="حذف تصویر"
+    >
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+    </button>
+  </div>
+</div>
 
-              <!-- حذف عکس -->
-              <button
-                v-if="currentRoomAvatar"
-                @click="removeAvatar"
-                class="p-2 bg-red-500/80 hover:bg-red-600 rounded-full text-white transition-all"
-              >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-              </button>
-            </div>
-          </div>
+<!-- 🖼️ مودال پیش‌نمایش و تأیید آپلود عکس -->
+<div
+  v-if="selectedAvatarFile"
+  class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+  dir="rtl"
+>
+  <div class="bg-white rounded-3xl p-5 w-full max-w-xs text-center space-y-4 shadow-2xl animate-fade-in">
+    <h4 class="text-sm font-bold text-gray-800">پیش‌نمایش تصویر جدید</h4>
+
+    <div class="w-32 h-32 mx-auto rounded-full overflow-hidden border-2 border-blue-500 shadow-inner">
+      <img :src="avatarPreviewUrl" class="w-full h-full object-cover" />
+    </div>
+
+    <div class="flex items-center justify-center gap-2 pt-2">
+      <button
+        @click="confirmUploadAvatar"
+        :disabled="isUploadingAvatar"
+        class="flex-1 py-2 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-md disabled:opacity-50 transition-all"
+      >
+        {{ isUploadingAvatar ? 'در حال آپلود...' : 'ذخیره تصویر' }}
+      </button>
+      <button
+        @click="cancelAvatarSelection"
+        :disabled="isUploadingAvatar"
+        class="flex-1 py-2 px-3 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium rounded-xl transition-all"
+      >
+        انصراف
+      </button>
+    </div>
+  </div>
+</div>
 
           <h3 class="text-lg font-bold text-white text-center">{{ chat_name }}</h3>
           <p v-if="room.type === 'direct' && other_user?.username" class="text-xs text-blue-100 mt-0.5">@{{ other_user.username }}</p>
@@ -392,19 +424,19 @@ const activeMenuIndex = ref(null)
 const replyingTo = ref(null)
 const onlineUsers = ref([])
 
-// وضعیت مودال پروفایل و ویرایش اطلاعات
+
 const showProfileModal = ref(false)
 const isEditingBio = ref(false)
 const isSavingBio = ref(false)
 const bioInput = ref('')
 const fileInput = ref(null)
 
-// حالت‌های لوکال برای به‌روزرسانی سریع عکس و بایو در UI
+
 const currentRoomAvatar = ref('')
 const currentBio = ref('')
 const roomMembers = ref([])
 
-// بررسی دسترسی ویرایش برای ادمین یا مالکین گروه
+
 const canManageGroup = computed(() => {
     if (props.room.type === 'private') return false
 
@@ -429,23 +461,53 @@ const closeProfileModal = () => {
     isEditingBio.value = false
 }
 
-// آپلود عکس پروفایل گروه
-const uploadAvatar = async (e) => {
+
+const selectedAvatarFile = ref(null)
+const avatarPreviewUrl = ref(null)
+const isUploadingAvatar = ref(false)
+
+
+const onFileSelected = (e) => {
     const file = e.target.files[0]
     if (!file) return
 
+    selectedAvatarFile.value = file
+
+    avatarPreviewUrl.value = URL.createObjectURL(file)
+}
+
+
+const cancelAvatarSelection = () => {
+    if (avatarPreviewUrl.value) {
+        URL.revokeObjectURL(avatarPreviewUrl.value)
+    }
+    selectedAvatarFile.value = null
+    avatarPreviewUrl.value = null
+    if (fileInput.value) {
+        fileInput.value.value = ''
+    }
+}
+
+const confirmUploadAvatar = async () => {
+    if (!selectedAvatarFile.value || isUploadingAvatar.value) return
+    isUploadingAvatar.value = true
+
     const formData = new FormData()
-    formData.append('avatar', file)
+    formData.append('avatar', selectedAvatarFile.value)
 
     try {
-        const res = await axios.post(`/chat/rooms/${props.room.id}/update-info`, formData, {
+        const res = await axios.post(`/chat/rooms/${props.room.id}/update-avatar`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         })
         if (res.data && res.data.avatar) {
             currentRoomAvatar.value = res.data.avatar
         }
+
+        cancelAvatarSelection()
     } catch (err) {
         console.error('خطا در آپلود عکس:', err)
+    } finally {
+        isUploadingAvatar.value = false
     }
 }
 
@@ -465,7 +527,7 @@ const saveBio = async () => {
     isSavingBio.value = true
 
     try {
-        await axios.post(`/chat/rooms/${props.room.id}/update-info`, {
+        await axios.post(`/chat/rooms/${props.room.id}/update-saveBio`, {
             description: bioInput.value
         })
         currentBio.value = bioInput.value

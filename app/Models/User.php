@@ -53,4 +53,14 @@ class User extends Authenticatable
                     ->withTimestamps();
 
     }
+
+    public function avatars()
+    {
+        return $this->hasMany(UserAvatar::class)->latest();
+    }
+
+    public function currentAvatar()
+    {
+        return $this->hasOne(UserAvatar::class)->latestOfMany();
+    }
 }

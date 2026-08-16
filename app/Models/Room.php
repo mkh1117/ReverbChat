@@ -26,11 +26,21 @@ class Room extends Model
                     ->withTimestamps();
     }
 
-    /**
-     * پیام‌های مربوط به این روم
-     */
+   
     public function messages(): HasMany
     {
         return $this->hasMany(chat::class, 'room_id');
     }
+
+    public function avatars()
+    {
+        return $this->hasMany(RoomAvatar::class)->latest();
+    }
+
+
+    public function currentAvatar()
+    {
+        return $this->hasOne(RoomAvatar::class)->latestOfMany();
+    }
 }
+

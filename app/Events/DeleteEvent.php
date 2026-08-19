@@ -12,31 +12,23 @@ use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
-class MessageEvent implements ShouldBroadcastNow
+class DeleteEvent implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
+
+    public $messageId;
+    public $room_id;
 
     /**
      * Create a new event instance.
      */
-    public $id;
-    public $message;
-    public $room_id;
-    public $sender_id;
-    public $is_read;
-    public $sender_name;
-    public $created_at;
-
-    public function __construct($chat)
+    public function __construct($message_id,$room_id)
     {
-        $this->id        = $chat->id;
-        $this->message   = $chat->message;
-        $this->room_id   = $chat->room_id;
-        $this->sender_id = $chat->sender_id;
-        $this->is_read   = $chat->is_read ?? 0;
-        $this->sender_name = $chat->sender->name;
-        $this->created_at = $chat->created_at->toIso8601String();
-
+        $this->messageId = $message_id;
+        $this->room_id = $room_id;
+        Log::error("delete resid");
+        Log::error($message_id);
+        Log::error($room_id);
     }
 
     /**
@@ -46,6 +38,7 @@ class MessageEvent implements ShouldBroadcastNow
      */
     public function broadcastOn()
     {
-        return new privateChannel('message.'.$this->room_id);
+         return new privateChannel('message.'.$this->room_id);
+
     }
 }

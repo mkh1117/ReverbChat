@@ -4,6 +4,7 @@ use App\Events\MessageEvent;
 use App\Events\MessagesReadEvent;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\auth\AuthenticatedSessionController;
+use App\Http\Controllers\MessageController;
 use App\Http\Controllers\RoomController;
 use App\Http\Controllers\UpdateInfoController;
 use App\Models\chat;
@@ -22,6 +23,8 @@ Route::get('/main',[RoomController::class,'main'])->middleware('auth');
 Route::get('/chat/{room_id}', [RoomController::class, 'show'])->name("test")->middleware('auth');
 Route::post('/rooms/create', [RoomController::class, 'store'])->middleware('auth');
 Route::post('/user/last-seen', [RoomController::class, 'updateLastSeen'])->name('user.last-seen')->middleware('auth');
+
+Route::delete('/chat/messages/{message_id}/{room_id}',[MessageController::class,'delete'])->middleware('auth');
 
 Route::post('/chat/rooms/{room_id}/update-avatar',[UpdateInfoController::class,'updateAvatar'])->name('update_avatar')->middleware(['auth','chat.admin']);
 
@@ -59,20 +62,21 @@ Route::post('/chat/{room_id}/messages', function (Request $request, $room_id) {
 
     return response()->json([
         'success' => true,
-        'message_id'    => $chat->id
+        'id'      => $chat->id,
+        'message' => $chat
     ], 201);
 
 })->middleware('auth');
 Route::post('chat/{room_id}/read', function(Request $request, $room_id) {
     $userId = Auth::id();
 
-    // دریافت آی‌دی پیام‌های ارسال شده از سمت فرانت‌اند
+
     $message_Ids = $request->input('message_ids', []);
 
     if (empty($message_Ids)) {
         return response()->json(['success' => true, 'updated' => 0]);
     }
-    // تغییر وضعیت فقط برای پیام‌های مشخصی که کاربر واقعاً روی صفحه دیده است
+
     $updatedCount = Chat::where('room_id', $room_id)
         ->whereIn('id', $message_Ids)
         ->where('sender_id', '!=', $userId)
@@ -80,7 +84,7 @@ Route::post('chat/{room_id}/read', function(Request $request, $room_id) {
         ->update(['is_read' => 1]);
     Log::error($updatedCount);
     if ($updatedCount > 0) {
-        // فرستادن لیست آی‌دی‌های خوانده شده به طرف مقابل جهت آبی کردن تیک‌ها به صورت آنی
+
         broadcast(new MessagesReadEvent($room_id, $message_Ids))->toOthers();
     }
 

@@ -95,15 +95,16 @@
           </div>
 
           <div class="relative group max-w-xs md:max-w-md" :class="m.user === 'sender' ? 'self-end' : 'self-start'">
-            <div
-              @click.stop="toggleMessageMenu(index)"
-              class="flex flex-col rounded-2xl shadow-sm text-sm leading-relaxed cursor-pointer select-none active:opacity-90 transition-all overflow-hidden pb-1"
-              :class="[
-                m.user === 'sender'
-                  ? 'bg-blue-600 text-white rounded-bl-none self-end'
-                  : 'bg-white text-gray-800 rounded-br-none border border-gray-100 self-start'
-              ]"
-            >
+                <div
+                  @click.stop="m.status !== 'pending' && toggleMessageMenu(index)"
+                  class="flex flex-col rounded-2xl shadow-sm text-sm leading-relaxed select-none transition-all overflow-hidden pb-1"
+                  :class="[
+                    m.user === 'sender'
+                      ? 'bg-blue-600 text-white rounded-bl-none self-end'
+                      : 'bg-white text-gray-800 rounded-br-none border border-gray-100 self-start',
+                    m.status === 'pending' ? 'opacity-70 cursor-wait' : 'cursor-pointer active:opacity-90'
+                  ]"
+                >
               <div
                 v-if="m.reply_to"
                 class="text-xs px-3 py-1.5 border-r-4 mt-2 mx-2 rounded flex flex-col text-right overflow-hidden"
@@ -135,9 +136,22 @@
                   <span>{{ formatTime(m.created_at) }}</span>
 
                   <template v-if="m.user === 'sender'">
-                    <svg v-if="m.is_read" class="w-3.5 h-3.5 text-sky-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+
+                    <svg v-if="m.status === 'pending'" class="w-3.5 h-3.5 text-blue-200 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+
+
+                    <svg v-else-if="m.status === 'failed'" class="w-3.5 h-3.5 text-red-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" title="عدم ارسال پیام">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+
+
+                    <svg v-else-if="m.is_read" class="w-3.5 h-3.5 text-sky-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7M10 17l4 4L23 9" />
                     </svg>
+
+
                     <svg v-else class="w-3.5 h-3.5 text-blue-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
@@ -155,8 +169,10 @@
                 <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
                 پاسخ دادن
               </button>
-              <button v-if="m.user === 'sender'" @click="deleteMessage(m, index)" class="w-full text-right px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2">
-                <svg class="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              <button v-if="m.user === 'sender'" @click="openDeleteModal(m, index)" class="w-full text-right px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2">
+                <svg class="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
                 حذف پیام
               </button>
             </div>
@@ -210,6 +226,7 @@
             >
           </div>
         </div>
+
       </template>
 
       <template v-else>
@@ -235,72 +252,73 @@
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
-<!-- بخش آواتار در مودال پروفایل -->
-<div class="relative group w-24 h-24 rounded-full border-4 border-white/20 shadow-lg overflow-hidden mb-3">
-  <img
-    v-if="avatarPreviewUrl || currentRoomAvatar"
-    :src="avatarPreviewUrl || currentRoomAvatar"
-    :alt="chat_name"
-    class="w-full h-full object-cover"
-  />
-  <div v-else class="w-full h-full bg-white/20 flex items-center justify-center font-bold text-2xl text-white">
-    {{ getInitials(chat_name) }}
-  </div>
 
-  <!-- دکمه‌های مدیریت تصویر (فقط ادمین/مالک) -->
-  <div
-    v-if="canManageGroup"
-    class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2"
-  >
-    <!-- انتخاب عکس -->
-    <label class="p-2 bg-white/20 hover:bg-white/40 rounded-full cursor-pointer text-white transition-all" title="تغییر تصویر">
-      <input type="file" ref="fileInput" accept="image/*" class="hidden" @change="onFileSelected" />
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><circle cx="12" cy="13" r="3"/></svg>
-    </label>
+          <!-- بخش آواتار در مودال پروفایل -->
+          <div class="relative group w-24 h-24 rounded-full border-4 border-white/20 shadow-lg overflow-hidden mb-3">
+            <img
+              v-if="avatarPreviewUrl || currentRoomAvatar"
+              :src="avatarPreviewUrl || currentRoomAvatar"
+              :alt="chat_name"
+              class="w-full h-full object-cover"
+            />
+            <div v-else class="w-full h-full bg-white/20 flex items-center justify-center font-bold text-2xl text-white">
+              {{ getInitials(chat_name) }}
+            </div>
 
-    <!-- حذف عکس -->
-    <button
-      v-if="currentRoomAvatar"
-      @click="removeAvatar"
-      class="p-2 bg-red-500/80 hover:bg-red-600 rounded-full text-white transition-all"
-      title="حذف تصویر"
-    >
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-    </button>
-  </div>
-</div>
+            <!-- دکمه‌های مدیریت تصویر (فقط ادمین/مالک) -->
+            <div
+              v-if="canManageGroup"
+              class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2"
+            >
+              <!-- انتخاب عکس -->
+              <label class="p-2 bg-white/20 hover:bg-white/40 rounded-full cursor-pointer text-white transition-all" title="تغییر تصویر">
+                <input type="file" ref="fileInput" accept="image/*" class="hidden" @change="onFileSelected" />
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><circle cx="12" cy="13" r="3"/></svg>
+              </label>
 
-<!-- 🖼️ مودال پیش‌نمایش و تأیید آپلود عکس -->
-<div
-  v-if="selectedAvatarFile"
-  class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
-  dir="rtl"
->
-  <div class="bg-white rounded-3xl p-5 w-full max-w-xs text-center space-y-4 shadow-2xl animate-fade-in">
-    <h4 class="text-sm font-bold text-gray-800">پیش‌نمایش تصویر جدید</h4>
+              <!-- حذف عکس -->
+              <button
+                v-if="currentRoomAvatar"
+                @click="removeAvatar"
+                class="p-2 bg-red-500/80 hover:bg-red-600 rounded-full text-white transition-all"
+                title="حذف تصویر"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              </button>
+            </div>
+          </div>
 
-    <div class="w-32 h-32 mx-auto rounded-full overflow-hidden border-2 border-blue-500 shadow-inner">
-      <img :src="avatarPreviewUrl" class="w-full h-full object-cover" />
-    </div>
+          <!-- 🖼️ مودال پیش‌نمایش و تأیید آپلود عکس -->
+          <div
+            v-if="selectedAvatarFile"
+            class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+            dir="rtl"
+          >
+            <div class="bg-white rounded-3xl p-5 w-full max-w-xs text-center space-y-4 shadow-2xl animate-fade-in">
+              <h4 class="text-sm font-bold text-gray-800">پیش‌نمایش تصویر جدید</h4>
 
-    <div class="flex items-center justify-center gap-2 pt-2">
-      <button
-        @click="confirmUploadAvatar"
-        :disabled="isUploadingAvatar"
-        class="flex-1 py-2 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-md disabled:opacity-50 transition-all"
-      >
-        {{ isUploadingAvatar ? 'در حال آپلود...' : 'ذخیره تصویر' }}
-      </button>
-      <button
-        @click="cancelAvatarSelection"
-        :disabled="isUploadingAvatar"
-        class="flex-1 py-2 px-3 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium rounded-xl transition-all"
-      >
-        انصراف
-      </button>
-    </div>
-  </div>
-</div>
+              <div class="w-32 h-32 mx-auto rounded-full overflow-hidden border-2 border-blue-500 shadow-inner">
+                <img :src="avatarPreviewUrl" class="w-full h-full object-cover" />
+              </div>
+
+              <div class="flex items-center justify-center gap-2 pt-2">
+                <button
+                  @click="confirmUploadAvatar"
+                  :disabled="isUploadingAvatar"
+                  class="flex-1 py-2 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-md disabled:opacity-50 transition-all"
+                >
+                  {{ isUploadingAvatar ? 'در حال آپلود...' : 'ذخیره تصویر' }}
+                </button>
+                <button
+                  @click="cancelAvatarSelection"
+                  :disabled="isUploadingAvatar"
+                  class="flex-1 py-2 px-3 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium rounded-xl transition-all"
+                >
+                  انصراف
+                </button>
+              </div>
+            </div>
+          </div>
 
           <h3 class="text-lg font-bold text-white text-center">{{ chat_name }}</h3>
           <p v-if="room.type === 'direct' && other_user?.username" class="text-xs text-blue-100 mt-0.5">@{{ other_user.username }}</p>
@@ -395,6 +413,13 @@
       </div>
     </div>
 
+    <!-- 🗑️ مودال تأیید حذف پیام -->
+    <DeleteMessageModal
+      :isOpen="showDeleteModal"
+      @close="showDeleteModal = false"
+      @confirm="handleConfirmDelete"
+    />
+
   </div>
 </template>
 
@@ -402,6 +427,7 @@
 import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
 import axios from 'axios'
 import '../echo'
+import DeleteMessageModal from './../Components/chat/DeleteMessageModal.vue'
 
 const props = defineProps({
     user:       Object,
@@ -435,6 +461,11 @@ const fileInput = ref(null)
 const currentRoomAvatar = ref('')
 const currentBio = ref('')
 const roomMembers = ref([])
+
+
+const showDeleteModal = ref(false)
+const selectedMessageToDelete = ref(null)
+const selectedMessageIndexToDelete = ref(null)
 
 
 const canManageGroup = computed(() => {
@@ -699,16 +730,40 @@ const truncateText = (text) => {
   return text.length > 30 ? text.substring(0, 30) + '...' : text
 }
 
-const deleteMessage = async (message, index) => {
+const openDeleteModal = (message, index) => {
+  if (String(message.id).startsWith('temp-') || message.status === 'pending') {
+        alert('پیام هنوز ارسال نشده است. لطفا لحظه‌ای صبر کنید.')
+        return
+}
   activeMenuIndex.value = null
+  selectedMessageToDelete.value = message
+  selectedMessageIndexToDelete.value = index
+  showDeleteModal.value = true
+}
+
+const handleConfirmDelete = async (deleteType) => {
+  const message = selectedMessageToDelete.value
+  const index = selectedMessageIndexToDelete.value
+
+  showDeleteModal.value = false
+
+  if (!message) return
+
+
   messages.value.splice(index, 1)
+
   try {
     if (message.id) {
       axios.defaults.headers.common["X-Socket-Id"] = Echo.socketId()
-      await axios.delete(`/chat/messages/${message.id}`)
+      await axios.delete(`/chat/messages/${message.id}/${props.room.id}`, {
+        data: { delete_type: deleteType }
+      })
     }
   } catch (e) {
     console.error('خطا در حذف پیام:', e)
+  } finally {
+    selectedMessageToDelete.value = null
+    selectedMessageIndexToDelete.value = null
   }
 }
 
@@ -778,25 +833,43 @@ const send = async () => {
     newMessage.value = ''
     replyingTo.value = null
 
-    messages.value.push({
-      id: Date.now(),
-      message: text,
-      user: 'sender',
-      reply_to: replyPayload,
-      is_read: 0,
-      created_at: new Date().toISOString()
-    })
+    // ۱. ایجاد آیدی موقت جهت نمایش آنی در UI
+    const tempId = 'temp-' + Date.now()
 
+    const tempMessage = {
+        id: tempId,
+        message: text,
+        user: 'sender',
+        reply_to: replyPayload,
+        is_read: 0,
+        status: 'pending', // ⏳ وضعیت در حال ارسال (برای آیکون تایمر)
+        created_at: new Date().toISOString()
+    }
+
+    messages.value.push(tempMessage)
     scrollToBottom()
 
     try {
         axios.defaults.headers.common["X-Socket-Id"] = Echo.socketId()
-        await axios.post(`/chat/${props.room.id}/messages`, {
+        const res = await axios.post(`/chat/${props.room.id}/messages`, {
             message: text,
             reply_to_id: replyPayload ? replyPayload.id : null
         })
+
+
+        const realId = res.data.message?.id || res.data.id
+
+        const index = messages.value.findIndex(m => m.id === tempId)
+        if (index !== -1 && realId) {
+            messages.value[index].id = realId
+            messages.value[index].status = 'sent'
+        }
     } catch(e) {
         console.error('خطا در ارسال:', e)
+        const index = messages.value.findIndex(m => m.id === tempId)
+        if (index !== -1) {
+            messages.value[index].status = 'failed'
+        }
     }
 }
 
@@ -838,6 +911,9 @@ onMounted(() => {
     Echo.private('message.' + props.room.id)
         .listen('MessageEvent', (e) => {
             const isSender = e.sender_id === props.user.id;
+
+            const exists = messages.value.some(m => String(m.id) === String(e.id));
+            if (exists) return;
 
             messages.value.push({
                 id: e.id,
@@ -906,6 +982,23 @@ onMounted(() => {
         .error((error) => {
             console.error('خطای Presence Channel:', error)
         })
+
+        Echo.private('message.' + props.room.id)
+            .listen('DeleteEvent', (e) => {
+
+
+
+            const index = messages.value.findIndex(
+                m => String(m.id) === String(e.messageId)
+            );
+
+
+
+            if (index !== -1) {
+                messages.value.splice(index, 1);
+
+            }
+            });
 })
 
 onUnmounted(() => {

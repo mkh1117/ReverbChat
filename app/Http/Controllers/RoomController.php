@@ -6,6 +6,7 @@ use App\Models\chat;
 use App\Models\Room;
 use App\Models\room_user;
 use App\Models\Contact;
+use App\Models\RoomAvatar;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -25,7 +26,7 @@ class RoomController extends Controller
         })
         ->withCount(['messages as unread_count' => function ($query) use ($userId) {
             $query->where('is_read', false)
-                  ->where('sender_id', '!=', $userId); // <-- تغییر user_id به sender_id
+                  ->where('sender_id', '!=', $userId);
         }])
         ->get();
 
@@ -37,10 +38,10 @@ class RoomController extends Controller
 
 public function show($room_id)
 {
-    $id = Auth::id();
+    $userId = Auth::id();
     $roomUser = DB::table('room_users')
         ->where('room_id', $room_id)
-        ->where('user_id', $id)
+        ->where('user_id', $userId)
         ->first();
 
     abort_if(!$roomUser, 403);
@@ -51,28 +52,42 @@ public function show($room_id)
     if ($room->type === 'private') {
         $otherUser = User::whereHas('rooms', function ($q) use ($room_id) {
             $q->where('rooms.id', $room_id);
-        })->where('id', '!=', $id)
+        })->where('id', '!=', $userId)
           ->select('id', 'name', 'last_seen_at')
           ->first();
     }
 
-    $chats = chat::with([
+    $chats = Chat::with([
         'sender:id,name',
     ])
-    ->select('id', 'sender_id', 'message', 'is_read', 'created_at','updated_at')
+    ->select('id', 'sender_id', 'message', 'is_read', 'created_at', 'updated_at')
     ->where('room_id', $room_id)
+    ->where(function ($query) use ($userId) {
+        $query->where(function ($q) use ($userId) {
+            // حالت اول: اگر کاربر فرستنده است و پیام را حذف نکرده
+            $q->where('sender_id', $userId)
+              ->where('sender_delete', false);
+        })->orWhere(function ($q) use ($userId) {
+            // حالت دوم: اگر کاربر گیرنده است و پیام را حذف نکرده
+            $q->where('sender_id', '!=', $userId) // یا شرط گیرنده بودن مثل receiver_id
+              ->where('receiver_delete', false);
+        });
+    })
     ->orderBy('created_at', 'asc')
     ->get();
 
-    $chatName = $this->resolveChatName($room, $id);
+    $picture= RoomAvatar::where('room_id',$room_id)->get();
+
+    $chatName = $this->resolveChatName($room, $userId);
 
     return Inertia::render('Room', [
         'user'      => Auth::user(),
         'room'      => $room,
         'chat_name' => $chatName,
         'user_role' => $roomUser->role,
-        'other_user' => $otherUser,
-        'chats'     => $chats
+        'other_user'=> $otherUser,
+        'chats'     => $chats,
+        'picture'   => $picture
     ]);
 }
 
@@ -134,7 +149,6 @@ public function store(Request $request)
     }
 
     public function updateLastSeen(Request $request) {
-        Log::error('resid');
         $user = $request->user();
         $userId = Auth::id();
         if(! $user){

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class chat extends Model
 {
     protected $table = 'chats';
-    protected $fillable = ['room_id', 'sender_id', 'message', 'is_read'];
+    protected $fillable = ['room_id', 'sender_id', 'message', 'is_read','sender_delete','receiver_delete'];
     protected $casts = [
         'is_read' => 'boolean',
     ];

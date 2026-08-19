@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class RoomController extends Controller
@@ -39,6 +40,7 @@ class RoomController extends Controller
 public function show($room_id)
 {
     $userId = Auth::id();
+
     $roomUser = DB::table('room_users')
         ->where('room_id', $room_id)
         ->where('user_id', $userId)
@@ -47,8 +49,8 @@ public function show($room_id)
     abort_if(!$roomUser, 403);
 
     $otherUser = null;
-    $room=Room::where('id',$room_id)->firstOrFail();
-    //گرفتن آخرین بازدید ها
+    $room = Room::where('id', $room_id)->firstOrFail();
+
     if ($room->type === 'private') {
         $otherUser = User::whereHas('rooms', function ($q) use ($room_id) {
             $q->where('rooms.id', $room_id);
@@ -57,37 +59,36 @@ public function show($room_id)
           ->first();
     }
 
-    $chats = Chat::with([
-        'sender:id,name',
-    ])
-    ->select('id', 'sender_id', 'message', 'is_read', 'created_at', 'updated_at')
-    ->where('room_id', $room_id)
-    ->where(function ($query) use ($userId) {
-        $query->where(function ($q) use ($userId) {
-            // حالت اول: اگر کاربر فرستنده است و پیام را حذف نکرده
-            $q->where('sender_id', $userId)
-              ->where('sender_delete', false);
-        })->orWhere(function ($q) use ($userId) {
-            // حالت دوم: اگر کاربر گیرنده است و پیام را حذف نکرده
-            $q->where('sender_id', '!=', $userId) // یا شرط گیرنده بودن مثل receiver_id
-              ->where('receiver_delete', false);
-        });
-    })
-    ->orderBy('created_at', 'asc')
-    ->get();
+    $chats = Chat::with(['sender:id,name'])
+        ->select('id', 'sender_id', 'message', 'is_read', 'created_at', 'updated_at')
+        ->where('room_id', $room_id)
+        ->where(function ($query) use ($userId) {
+            $query->where(function ($q) use ($userId) {
+                $q->where('sender_id', $userId)->where('sender_delete', false);
+            })->orWhere(function ($q) use ($userId) {
+                $q->where('sender_id', '!=', $userId)->where('receiver_delete', false);
+            });
+        })
+        ->orderBy('created_at', 'asc')
+        ->get();
 
-    $picture= RoomAvatar::where('room_id',$room_id)->get();
+
+    $avatars = RoomAvatar::where('room_id', $room_id)
+        ->latest()
+        ->pluck('path')
+        ->map(fn($path) => Storage::url($path))
+        ->toArray();
 
     $chatName = $this->resolveChatName($room, $userId);
 
     return Inertia::render('Room', [
-        'user'      => Auth::user(),
-        'room'      => $room,
-        'chat_name' => $chatName,
-        'user_role' => $roomUser->role,
-        'other_user'=> $otherUser,
-        'chats'     => $chats,
-        'picture'   => $picture
+        'user'       => Auth::user(),
+        'room'       => $room,
+        'chat_name'  => $chatName,
+        'user_role'  => $roomUser->role,
+        'other_user' => $otherUser,
+        'chats'      => $chats,
+        'avatars'    => $avatars,
     ]);
 }
 
@@ -120,21 +121,21 @@ public function store(Request $request)
 
         $userId = Auth::id();
 
-        // ۱. ساخت اتاق جدید
+
         $room = Room::create([
             'name' => $validated['name'],
-            'type' => $validated['type'], // 'group' یا 'channel'
+            'type' => $validated['type'],
             'owner_id' => $userId,
         ]);
 
-        // ۲. اضافه کردن سازنده به عنوان ادمین/مالک اتاق
+
         room_user::create([
             'room_id' => $room->id,
             'user_id' => $userId,
             'role'    => 'owner',
         ]);
 
-        // ۳. اضافه کردن اعضای انتخاب شده از لیست مخاطبین
+
         if (!empty($validated['selectedMembers'])) {
             foreach ($validated['selectedMembers'] as $memberId) {
                 room_user::create([
@@ -163,9 +164,39 @@ public function store(Request $request)
                 'last_seen_at' => now(),
             ]);
 
-            Cache::put($cacheKey, true, 60); // قفل کردن برای ۶۰ ثانیه
+            Cache::put($cacheKey, true, 60);
         }
         return response()->json(['status' => 'success']);
 
     }
+
+public function deleteAvatar(Request $request, $room)
+{
+    $request->validate([
+        'image_url' => 'required|string',
+    ]);
+
+
+    $path = str_replace('/storage/', '', parse_url($request->image_url, PHP_URL_PATH));
+
+    $avatar = RoomAvatar::where('room_id', $room)
+        ->where('path', $path)
+        ->first();
+
+    if (!$avatar) {
+        return response()->json(['message' => 'تصویر مورد نظر یافت نشد.'], 404);
+    }
+
+
+    DB::transaction(function () use ($avatar) {
+
+        DB::afterCommit(function () use ($avatar) {
+            Storage::disk('public')->delete($avatar->path);
+        });
+
+        $avatar->delete();
+    });
+
+    return response()->json(['message' => 'تصویر با موفقیت حذف شد.']);
+}
 }

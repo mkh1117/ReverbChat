@@ -17,6 +17,7 @@
         <img
           v-if="currentRoomAvatar"
           :src="currentRoomAvatar"
+          @click.stop="openGallery"
           :alt="chat_name"
           class="w-full h-full rounded-full object-cover border border-gray-200"
         />
@@ -420,6 +421,16 @@
       @confirm="handleConfirmDelete"
     />
 
+    <AvatarGalleryModal
+  :show="showGalleryModal"
+  :avatars="avatarList"
+  :current-avatar="currentRoomAvatar"
+  :title="chat_name"
+  :can-delete="user_role === 'admin' || user_role === 'owner'"
+  @delete="handleDeleteAvatar"
+  @close="showGalleryModal = false"
+/>
+
   </div>
 </template>
 
@@ -428,6 +439,7 @@ import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
 import axios from 'axios'
 import '../echo'
 import DeleteMessageModal from './../Components/chat/DeleteMessageModal.vue'
+import AvatarGalleryModal from './../Components/chat/AvatarGalleryModal.vue'
 
 const props = defineProps({
     user:       Object,
@@ -436,6 +448,7 @@ const props = defineProps({
     user_role:  String,
     chats:      Array,
     other_user: Object,
+    avatars:    Array,
 })
 
 defineEmits(['back'])
@@ -457,8 +470,11 @@ const isSavingBio = ref(false)
 const bioInput = ref('')
 const fileInput = ref(null)
 
+const avatarList = ref([...(props.avatars || [])])
 
-const currentRoomAvatar = ref('')
+const currentRoomAvatar = computed(() => {
+    return avatarList.value.length > 0 ? avatarList.value[0] : null
+})
 const currentBio = ref('')
 const roomMembers = ref([])
 
@@ -492,6 +508,13 @@ const closeProfileModal = () => {
     isEditingBio.value = false
 }
 
+const showGalleryModal = ref(false)
+
+const openGallery = () => {
+    if (currentRoomAvatar.value) {
+        showGalleryModal.value = true
+    }
+}
 
 const selectedAvatarFile = ref(null)
 const avatarPreviewUrl = ref(null)
@@ -530,8 +553,9 @@ const confirmUploadAvatar = async () => {
         const res = await axios.post(`/chat/rooms/${props.room.id}/update-avatar`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         })
+
         if (res.data && res.data.avatar) {
-            currentRoomAvatar.value = res.data.avatar
+            avatarList.value.unshift(res.data.avatar)
         }
 
         cancelAvatarSelection()
@@ -543,10 +567,20 @@ const confirmUploadAvatar = async () => {
 }
 
 // حذف عکس گروه
-const removeAvatar = async () => {
+const handleDeleteAvatar = async ({ image, index }) => {
+    if (!confirm('آیا از حذف این عکس مطمئن هستید؟')) return
+
     try {
-        await axios.delete(`/chat/rooms/${props.room.id}/remove-avatar`)
-        currentRoomAvatar.value = null
+        await axios.post(`/chat/rooms/${props.room.id}/delete-avatar`, {
+            image_url: image
+        })
+
+
+        avatarList.value.splice(index, 1)
+
+        if (avatarList.value.length === 0) {
+            showGalleryModal.value = false
+        }
     } catch (err) {
         console.error('خطا در حذف عکس:', err)
     }

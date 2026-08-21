@@ -23,19 +23,21 @@ class MessageEvent implements ShouldBroadcastNow
     public $message;
     public $room_id;
     public $sender_id;
+    public $reply_to;
     public $is_read;
     public $sender_name;
     public $created_at;
 
     public function __construct($chat)
     {
-        $this->id        = $chat->id;
-        $this->message   = $chat->message;
-        $this->room_id   = $chat->room_id;
-        $this->sender_id = $chat->sender_id;
-        $this->is_read   = $chat->is_read ?? 0;
+        $this->id          = $chat->id;
+        $this->message     = $chat->message;
+        $this->room_id     = $chat->room_id;
+        $this->sender_id   = $chat->sender_id;
+        $this->reply_to    = $chat->parent;
+        $this->is_read     = $chat->is_read ?? 0;
         $this->sender_name = $chat->sender->name;
-        $this->created_at = $chat->created_at->toIso8601String();
+        $this->created_at  = $chat->created_at->toIso8601String();
 
     }
 

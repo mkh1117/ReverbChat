@@ -48,6 +48,7 @@ Route::post('/chat/{room_id}/messages', function (Request $request, $room_id) {
 
     $validated = $request->validate([
         'message' => 'required|string|max:1000',
+        'reply_to_id' => 'nullable|exists:chats,id',
     ]);
 
 
@@ -55,9 +56,10 @@ Route::post('/chat/{room_id}/messages', function (Request $request, $room_id) {
         'room_id'   => $room_id,
         'sender_id' => $userId,
         'message'   => $validated['message'],
+        'reply_to_id' => $validated['reply_to_id'] ?? null,
     ]);
 
-    $chat->load('sender:id,name');
+    $chat->load(['sender:id,name', 'parent']);
 
     broadcast(new MessageEvent($chat))->toOthers();
 

@@ -108,12 +108,13 @@
                 >
               <div
                 v-if="m.reply_to"
-                class="text-xs px-3 py-1.5 border-r-4 mt-2 mx-2 rounded flex flex-col text-right overflow-hidden"
+                @click.stop="scrollToMessage(m.reply_to.id)"
+                class="text-xs px-3 py-1.5 border-r-4 mt-2 mx-2 rounded flex flex-col text-right overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
                 :class="m.user === 'sender'
                   ? 'bg-blue-700/40 border-white text-blue-100'
                   : 'bg-gray-100 border-blue-500 text-gray-500'"
               >
-                <span class="font-bold text-[10px]" :class="m.user === 'sender' ? 'text-white' : 'text-blue-600'">پاسخ به:</span>
+                <span class="font-bold text-[10px]" :class="m.user === 'sender' ? 'text-white' : 'text-blue-600'">{{ m.reply_to.sender?.name || m.reply_to.sender_name || 'کاربر' }}:</span>
                 <span class="truncate mt-0.5">{{ truncateText(m.reply_to.message) }}</span>
               </div>
 
@@ -199,7 +200,9 @@
       <template v-if="canSendMessage">
         <div v-if="replyingTo" class="flex items-center justify-between bg-blue-50 border-r-4 border-blue-500 px-3 py-2 rounded-lg w-full text-xs">
           <div class="flex flex-col text-right overflow-hidden">
-            <span class="font-bold text-blue-600">پاسخ به پیام</span>
+            <span class="font-bold text-blue-600">
+                پاسخ به {{ replyingTo.sender_name || replyingTo.sender?.name || 'کاربر' }}
+            </span>
             <span class="text-gray-500 truncate mt-0.5">{{ replyingTo.message }}</span>
           </div>
           <button @click="cancelReply" class="text-gray-400 hover:text-gray-600 p-1">
@@ -686,6 +689,17 @@ const handleScroll = () => {
     showScrollDownBtn.value = (scrollHeight - scrollTop - clientHeight) > 200
 }
 
+const scrollToMessage = (msgId) => {
+    if (!msgId) return
+    const el = document.getElementById(`msg-${msgId}`)
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+        el.classList.add('ring-2', 'ring-indigo-500')
+        setTimeout(() => el.classList.remove('ring-2', 'ring-indigo-500'), 2000)
+    }
+}
+
 const initMessages = () => {
     let firstUnreadId = null
 
@@ -713,7 +727,7 @@ const initMessages = () => {
             user: isSender ? 'sender' : 'receiver',
             sender_name: msg.sender ? msg.sender.name : (msg.sender_name || 'کاربر'),
             sender_avatar: msg.sender ? msg.sender.avatar : msg.sender_avatar,
-            reply_to: msg.reply_to,
+            reply_to: msg.parent || msg.reply_to || null,
             is_read: msg.is_read,
             created_at: msg.created_at || new Date().toISOString()
         }

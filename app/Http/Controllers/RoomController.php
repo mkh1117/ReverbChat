@@ -59,8 +59,8 @@ public function show($room_id)
           ->first();
     }
 
-    $chats = Chat::with(['sender:id,name'])
-        ->select('id', 'sender_id', 'message', 'is_read', 'created_at', 'updated_at')
+    $chats = Chat::with(['sender:id,name','parent'])
+        ->select('id', 'sender_id', 'message', 'is_read','reply_to_id', 'created_at', 'updated_at')
         ->where('room_id', $room_id)
         ->where(function ($query) use ($userId) {
             $query->where(function ($q) use ($userId) {

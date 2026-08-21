@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\DeleteAvatarEvent;
 use App\Models\chat;
 use App\Models\Room;
 use App\Models\room_user;
@@ -55,7 +56,7 @@ public function show($room_id)
         $otherUser = User::whereHas('rooms', function ($q) use ($room_id) {
             $q->where('rooms.id', $room_id);
         })->where('id', '!=', $userId)
-          ->select('id', 'name', 'last_seen_at')
+          ->select('id', 'name', 'bio', 'last_seen_at')
           ->first();
     }
 
@@ -197,6 +198,9 @@ public function deleteAvatar(Request $request, $room)
         $avatar->delete();
     });
 
+    broadcast(new DeleteAvatarEvent($room,Storage::url($avatar->path)))->toOthers();
+
     return response()->json(['message' => 'تصویر با موفقیت حذف شد.']);
 }
+
 }

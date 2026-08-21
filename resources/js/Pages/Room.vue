@@ -29,7 +29,7 @@
         </div>
 
         <span
-          v-if="room.type === 'direct' && isPartnerOnline"
+          v-if="room.type === 'private' && isPartnerOnline"
           class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"
         ></span>
       </div>
@@ -83,7 +83,7 @@
           <!-- آواتار فرستنده -->
           <div v-if="m.user === 'receiver'" class="w-8 h-8 rounded-full flex-shrink-0 self-end mb-1">
             <img
-              v-if="m.sender_avatar || (room.type === 'direct' && other_user?.avatar)"
+              v-if="m.sender_avatar || (room.type === 'private' && other_user?.avatar)"
               :src="m.sender_avatar || other_user?.avatar"
               class="w-full h-full rounded-full object-cover border border-gray-200"
             />
@@ -325,46 +325,65 @@
           </div>
 
           <h3 class="text-lg font-bold text-white text-center">{{ chat_name }}</h3>
-          <p v-if="room.type === 'direct' && other_user?.username" class="text-xs text-blue-100 mt-0.5">@{{ other_user.username }}</p>
+          <p v-if="room.type === 'private' && other_user?.username" class="text-xs text-blue-100 mt-0.5">@{{ other_user.username }}</p>
         </div>
 
         <!-- بدنه مودال (بایو و اعضا) -->
         <div class="p-5 space-y-5 text-right overflow-y-auto flex-1" dir="rtl">
 
+
           <!-- ویرایش/نمایش بایو -->
-          <div class="space-y-1.5">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-semibold text-gray-400">بیوگرافی (توضیحات)</span>
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-gray-400">
+              {{ room.type === 'private' ? 'بیوگرافی کاربر' : 'توضیحات گروه' }}
+            </span>
+
+            <!-- دکمه ویرایش فقط برای گروه/کانال و توسط مدیر/مالک -->
+            <button
+              v-if="room.type !== 'private' && canManageGroup && !isEditingBio"
+              @click="openBioEdit"
+              class="text-xs text-blue-600 font-medium hover:underline"
+            >
+              ویرایش
+            </button>
+          </div>
+
+          <!-- حالت ویرایش بایو (فقط برای گروه/کانال) -->
+          <div v-if="isEditingBio" class="space-y-2">
+            <textarea
+              v-model="bioInput"
+              rows="3"
+              class="w-full text-xs text-gray-700 bg-gray-50 border border-blue-300 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              :placeholder="room.type === 'channel' ? 'توضیحات کانال را وارد کنید...' : 'توضیحات گروه را وارد کنید...'"
+            ></textarea>
+            <div class="flex justify-end gap-2">
               <button
-                v-if="canManageGroup && !isEditingBio"
-                @click="isEditingBio = true"
-                class="text-xs text-blue-600 font-medium hover:underline"
+                @click="isEditingBio = false"
+                class="px-3 py-1 text-xs text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                ویرایش
+                انصراف
+              </button>
+              <button
+                @click="saveBio"
+                :disabled="isSavingBio"
+                class="px-3 py-1 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {{ isSavingBio ? 'در حال ثبت...' : 'ذخیره' }}
               </button>
             </div>
+          </div>
 
-            <!-- حالت ویرایش بایو -->
-            <div v-if="isEditingBio" class="space-y-2">
-              <textarea
-                v-model="bioInput"
-                rows="3"
-                class="w-full text-xs text-gray-700 bg-gray-50 border border-blue-300 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="توضیحات گروه را وارد کنید..."
-              ></textarea>
-              <div class="flex justify-end gap-2">
-                <button @click="isEditingBio = false" class="px-3 py-1 text-xs text-gray-500 hover:bg-gray-100 rounded-lg">انصراف</button>
-                <button @click="saveBio" :disabled="isSavingBio" class="px-3 py-1 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                  {{ isSavingBio ? 'در حال ثبت...' : 'ذخیره' }}
-                </button>
-              </div>
-            </div>
-
-            <!-- حالت نمایش بایو -->
-            <p v-else class="text-sm text-gray-700 leading-relaxed bg-gray-50 p-3 rounded-2xl border border-gray-100 whitespace-pre-line">
+          <!-- حالت نمایش بایو -->
+          <div v-else class="bg-gray-50 p-3 rounded-2xl border border-gray-100">
+            <p v-if="currentBio" class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
               {{ currentBio }}
             </p>
+            <p v-else class="text-xs text-gray-400 italic">
+              {{ room.type === 'private' ? 'بیوگرافی ثبت نشده است.' : 'توضیحاتی برای این روم ثبت نشده است.' }}
+            </p>
           </div>
+        </div>
 
           <!-- لیست کاربران (فقط برای گروه) -->
           <div v-if="room.type === 'group'" class="space-y-2">
@@ -476,11 +495,27 @@ const fileInput = ref(null)
 const avatarList = ref([...(props.avatars || [])])
 
 const currentRoomAvatar = computed(() => {
-    return avatarList.value.length > 0 ? avatarList.value[0] : null
+    if (props.room.type === 'private') {
+        return props.other_user?.avatar || null
+    }
+    return avatarList.value.length > 0 ? avatarList.value[0] : (props.room.avatar || null)
 })
 const currentBio = ref('')
 const roomMembers = ref([])
 
+
+const initProfileData = () => {
+  if (props.room.type === 'private') {
+    currentRoomAvatar.value = props.other_user?.avatar || null
+
+    currentBio.value = props.other_user?.bio || ''
+  } else {
+    currentRoomAvatar.value = avatarList.value.length > 0 ? avatarList.value[0] : (props.room.avatar || null)
+    currentBio.value = props.room.bio || ''
+    roomMembers.value = props.room.users || []
+  }
+  bioInput.value = currentBio.value
+}
 
 const showDeleteModal = ref(false)
 const selectedMessageToDelete = ref(null)
@@ -518,6 +553,12 @@ const openGallery = () => {
         showGalleryModal.value = true
     }
 }
+
+const openBioEdit = () => {
+  bioInput.value = currentBio.value || '';
+  isEditingBio.value = true;
+};
+
 
 const selectedAvatarFile = ref(null)
 const avatarPreviewUrl = ref(null)
@@ -595,16 +636,31 @@ const saveBio = async () => {
     isSavingBio.value = true
 
     try {
-        await axios.post(`/chat/rooms/${props.room.id}/update-saveBio`, {
+        const res = await axios.post(`/chat/rooms/${props.room.id}/update-description`, {
             description: bioInput.value
         })
+
+
         currentBio.value = bioInput.value
+
+
+        if (props.room.type === 'private') {
+            if (props.other_user) props.other_user.bio = bioInput.value
+        } else {
+            if (props.room) props.room.description = bioInput.value
+        }
+
         isEditingBio.value = false
     } catch (err) {
         console.error('خطا در ثبت توضیحات:', err)
     } finally {
         isSavingBio.value = false
     }
+}
+
+const cancelEditBio = () => {
+  bioInput.value = currentBio.value
+  isEditingBio.value = false
 }
 
 const getInitials = (name) => {
@@ -703,16 +759,8 @@ const scrollToMessage = (msgId) => {
 const initMessages = () => {
     let firstUnreadId = null
 
-    // مقداردهی حالت اولیه روم
-    if (props.room.type === 'direct') {
-        currentRoomAvatar.value = props.other_user?.avatar || null
-        currentBio.value = props.other_user?.bio || 'بیوگرافی تنظیم نشده است.'
-    } else {
-        currentRoomAvatar.value = props.room.avatar || null
-        currentBio.value = props.room.description || 'توضیحاتی برای این روم درج نشده است.'
-        roomMembers.value = props.room.users || []
-    }
-    bioInput.value = currentBio.value
+
+    initProfileData()
 
     messages.value = props.chats.map(msg => {
         const isSender = msg.sender_id === props.user.id
@@ -991,6 +1039,7 @@ onMounted(() => {
             }
         })
 
+
     Echo.private('message.' + props.room.id)
         .listen('MessagesReadEvent', (e) => {
             if (e.message_ids && Array.isArray(e.message_ids)) {
@@ -1035,7 +1084,6 @@ onMounted(() => {
             .listen('DeleteEvent', (e) => {
 
 
-
             const index = messages.value.findIndex(
                 m => String(m.id) === String(e.messageId)
             );
@@ -1047,6 +1095,55 @@ onMounted(() => {
 
             }
             });
+
+
+            Echo.private('message.' + props.room.id)
+                .listen('BioEvent', (e) => {
+
+                currentBio.value = e.description;
+
+            });
+
+            Echo.private('message.' + props.room.id)
+                .listen('AvatarEvent', (e) => {
+                    if (e.path) {
+
+                        avatarList.value.unshift(e.path)
+
+                    if (props.room.type === 'private' && props.other_user) {
+                        props.other_user.avatar = e.path
+                        }
+                    }
+
+            });
+
+            Echo.private('message.' + props.room.id)
+                .listen('DeleteAvatarEvent', (e) => {
+                    if (e.path) {
+                        const targetUrl = e.path
+
+                        const index = avatarList.value.findIndex(img => img === targetUrl)
+
+
+                        if (index !== -1) {
+                            avatarList.value.splice(index, 1)
+                        }
+
+
+                        if (props.room.type === 'private' && props.other_user?.avatar === targetUrl) {
+                            props.other_user.avatar = avatarList.value.length > 0 ? avatarList.value[0] : null
+                        }
+
+
+                        if (avatarList.value.length === 0) {
+                            showGalleryModal.value = false
+                        }
+                    }
+                });
+
+
+
+
 })
 
 onUnmounted(() => {

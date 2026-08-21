@@ -24,6 +24,7 @@ Route::get('/chat/{room_id}', [RoomController::class, 'show'])->name("test")->mi
 Route::post('/rooms/create', [RoomController::class, 'store'])->middleware('auth');
 Route::post('/user/last-seen', [RoomController::class, 'updateLastSeen'])->name('user.last-seen')->middleware('auth');
 Route::post('/chat/rooms/{room_id}/delete-avatar',[RoomController::class,'deleteAvatar'])->middleware(['auth','chat.admin']);
+Route::post('/chat/rooms/{room_id}/update-description',[UpdateInfoController::class,'updateDescription'])->middleware(['auth','chat.admin']);
 
 Route::delete('/chat/messages/{message_id}/{room_id}',[MessageController::class,'delete'])->middleware('auth');
 

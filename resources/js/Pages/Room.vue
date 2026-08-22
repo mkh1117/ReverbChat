@@ -495,10 +495,11 @@ const fileInput = ref(null)
 const avatarList = ref([...(props.avatars || [])])
 
 const currentRoomAvatar = computed(() => {
-    if (props.room.type === 'private') {
-        return props.other_user?.avatar || null
-    }
-    return avatarList.value.length > 0 ? avatarList.value[0] : (props.room.avatar || null)
+  if (props.room.type === 'private') {
+
+    return avatarList.value.length > 0 ? avatarList.value[0] : (props.other_user?.avatar || null)
+  }
+  return avatarList.value.length > 0 ? avatarList.value[0] : (props.room.avatar || null)
 })
 const currentBio = ref('')
 const roomMembers = ref([])
@@ -506,12 +507,9 @@ const roomMembers = ref([])
 
 const initProfileData = () => {
   if (props.room.type === 'private') {
-    currentRoomAvatar.value = props.other_user?.avatar || null
-
     currentBio.value = props.other_user?.bio || ''
   } else {
-    currentRoomAvatar.value = avatarList.value.length > 0 ? avatarList.value[0] : (props.room.avatar || null)
-    currentBio.value = props.room.bio || ''
+    currentBio.value = props.room.description || props.room.bio || ''
     roomMembers.value = props.room.users || []
   }
   bioInput.value = currentBio.value
@@ -594,6 +592,7 @@ const confirmUploadAvatar = async () => {
     formData.append('avatar', selectedAvatarFile.value)
 
     try {
+        axios.defaults.headers.common["X-Socket-Id"] = Echo.socketId()
         const res = await axios.post(`/chat/rooms/${props.room.id}/update-avatar`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         })
@@ -615,16 +614,19 @@ const handleDeleteAvatar = async ({ image, index }) => {
     if (!confirm('آیا از حذف این عکس مطمئن هستید؟')) return
 
     try {
+        axios.defaults.headers.common["X-Socket-Id"] = Echo.socketId()
         await axios.post(`/chat/rooms/${props.room.id}/delete-avatar`, {
             image_url: image
         })
 
-
         avatarList.value.splice(index, 1)
+
+
 
         if (avatarList.value.length === 0) {
             showGalleryModal.value = false
         }
+
     } catch (err) {
         console.error('خطا در حذف عکس:', err)
     }

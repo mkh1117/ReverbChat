@@ -52,10 +52,12 @@ Route::post('/chat/{room_id}/messages', function (Request $request, $room_id) {
         'reply_to_id' => 'nullable|exists:chats,id',
     ]);
 
+    $sequenceId = chat::getNextSequenceId($room_id);
 
     $chat = Chat::create([
         'room_id'   => $room_id,
         'sender_id' => $userId,
+        'sequence_id' => $sequenceId,
         'message'   => $validated['message'],
         'reply_to_id' => $validated['reply_to_id'] ?? null,
     ]);

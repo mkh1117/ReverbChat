@@ -22,7 +22,6 @@ use Inertia\Inertia;
 Route::get('/main',[RoomController::class,'main'])->middleware('auth');
 Route::get('/chat/{room_id}', [RoomController::class, 'show'])->name("test")->middleware('auth');
 Route::post('/rooms/create', [RoomController::class, 'store'])->middleware('auth');
-Route::post('/user/last-seen', [RoomController::class, 'updateLastSeen'])->name('user.last-seen')->middleware('auth');
 Route::post('/chat/rooms/{room_id}/delete-avatar',[RoomController::class,'deleteAvatar'])->middleware(['auth','chat.admin']);
 Route::post('/chat/rooms/{room_id}/update-description',[UpdateInfoController::class,'updateDescription'])->middleware(['auth','chat.admin']);
 

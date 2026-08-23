@@ -150,27 +150,6 @@ public function store(Request $request)
         return redirect()->back();
     }
 
-    public function updateLastSeen(Request $request) {
-        $user = $request->user();
-        $userId = Auth::id();
-        if(! $user){
-            return response()->json(['status' => 'unauthorized'], 401);
-        }
-
-        $cacheKey = 'user_last_seen_'.$user->id;
-        $dbThrottleKey = 'user_last_seen_db_updated_'.$user->id;
-
-        if (! Cache::has($dbThrottleKey)) {
-            User::where('id',$userId)->update([
-                'last_seen_at' => now(),
-            ]);
-
-            Cache::put($cacheKey, true, 60);
-        }
-        return response()->json(['status' => 'success']);
-
-    }
-
 public function deleteAvatar(Request $request, $room)
 {
     $request->validate([

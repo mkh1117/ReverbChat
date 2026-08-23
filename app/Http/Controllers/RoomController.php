@@ -49,9 +49,8 @@ public function show($room_id)
 
     abort_if(!$roomUser, 403);
 
-    $otherUser = null;
     $room = Room::where('id', $room_id)->firstOrFail();
-
+    $otherUser = null;
     if ($room->type === 'private') {
         $otherUser = User::whereHas('rooms', function ($q) use ($room_id) {
             $q->where('rooms.id', $room_id);
@@ -88,6 +87,7 @@ public function show($room_id)
         'chat_name'  => $chatName,
         'user_role'  => $roomUser->role,
         'other_user' => $otherUser,
+        'members'    => $room->type !== 'private' ? $this->getRoomMembers($room_id) : [],
         'chats'      => $chats,
         'avatars'    => $avatars,
     ]);
@@ -203,4 +203,14 @@ public function deleteAvatar(Request $request, $room)
     return response()->json(['message' => 'تصویر با موفقیت حذف شد.']);
 }
 
+private function getRoomMembers($roomId)
+{
+    return User::whereHas('rooms', function ($q) use ($roomId) {
+            $q->where('rooms.id', $roomId);
+        })
+        ->join('room_users', 'users.id', '=', 'room_users.user_id')
+        ->where('room_users.room_id', $roomId)
+        ->select('users.id', 'users.name', 'users.last_seen_at', 'room_users.role')
+        ->get();
+}
 }

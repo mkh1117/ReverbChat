@@ -386,51 +386,58 @@
         </div>
 
           <!-- لیست کاربران (فقط برای گروه) -->
-          <div v-if="room.type === 'group'" class="space-y-2">
-            <div class="flex items-center justify-between border-b border-gray-100 pb-2">
-              <span class="text-xs font-semibold text-gray-400">اعضای گروه</span>
-              <span class="text-xs bg-blue-50 text-blue-600 font-bold px-2 py-0.5 rounded-full">
-                {{ roomMembers.length }} نفر
-              </span>
-            </div>
+          <!-- لیست کاربران (برای گروه) -->
+<div v-if="room.type === 'group'" class="space-y-2">
+  <div class="flex items-center justify-between border-b border-gray-100 pb-2">
+    <span class="text-xs font-semibold text-gray-400">اعضای گروه</span>
+    <span class="text-xs bg-blue-50 text-blue-600 font-bold px-2 py-0.5 rounded-full">
+      {{ roomMembers.length }} نفر
+    </span>
+  </div>
 
-            <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
-              <div
-                v-for="member in roomMembers"
-                :key="member.id"
-                class="flex items-center justify-between py-1.5 px-2 hover:bg-gray-50 rounded-xl transition-all"
-              >
-                <div class="flex items-center gap-2.5 min-w-0">
-                  <div class="w-8 h-8 rounded-full overflow-hidden bg-slate-200 flex-shrink-0">
-                    <img v-if="member.avatar" :src="member.avatar" class="w-full h-full object-cover" />
-                    <div v-else class="w-full h-full bg-blue-500 text-white text-xs font-bold flex items-center justify-center">
-                      {{ getInitials(member.name) }}
-                    </div>
-                  </div>
-                  <div class="flex flex-col min-w-0">
-                    <span class="text-xs font-medium text-gray-800 truncate">{{ member.name }}</span>
-                    <span class="text-[10px]" :class="isUserOnline(member.id) ? 'text-green-500' : 'text-gray-400'">
-                      {{ isUserOnline(member.id) ? 'آنلاین' : 'آفلاین' }}
-                    </span>
-                  </div>
-                </div>
-
-                <!-- نشان نقش کاربر -->
-                <span
-                  v-if="member.role === 'owner'"
-                  class="text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200 px-2 py-0.5 rounded-md"
-                >
-                  مالک
-                </span>
-                <span
-                  v-else-if="member.role === 'admin'"
-                  class="text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-md"
-                >
-                  مدیر
-                </span>
-              </div>
-            </div>
+  <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
+    <div
+      v-for="member in roomMembers"
+      :key="member.id"
+      class="flex items-center justify-between py-1.5 px-2 hover:bg-gray-50 rounded-xl transition-all"
+    >
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="w-8 h-8 rounded-full overflow-hidden bg-slate-200 flex-shrink-0 relative">
+          <img v-if="member.avatar" :src="member.avatar" class="w-full h-full object-cover" />
+          <div v-else class="w-full h-full bg-blue-500 text-white text-xs font-bold flex items-center justify-center">
+            {{ getInitials(member.name) }}
           </div>
+        </div>
+
+        <div class="flex flex-col min-w-0">
+          <span class="text-xs font-medium text-gray-800 truncate">{{ member.name }}</span>
+
+          
+          <span
+            class="text-[10px]"
+            :class="isUserOnline(member.id) ? 'text-green-500 font-medium' : 'text-gray-400'"
+          >
+            {{ getUserStatus(member) }}
+          </span>
+        </div>
+      </div>
+
+      <!-- نشان نقش کاربر -->
+      <span
+        v-if="member.role === 'owner'"
+        class="text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200 px-2 py-0.5 rounded-md"
+      >
+        مالک
+      </span>
+      <span
+        v-else-if="member.role === 'admin'"
+        class="text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-md"
+      >
+        مدیر
+      </span>
+    </div>
+  </div>
+</div>
 
         </div>
       </div>
@@ -464,16 +471,17 @@ import DeleteMessageModal from './../Components/chat/DeleteMessageModal.vue'
 import AvatarGalleryModal from './../Components/chat/AvatarGalleryModal.vue'
 
 const props = defineProps({
-    user:       Object,
-    room:       Object,
-    chat_name:  String,
-    user_role:  String,
-    chats:      Array,
-    other_user: Object,
-    avatars:    Array,
+  user:       Object,
+  room:       Object,
+  chat_name:  String,
+  user_role:  String,
+  chats:      Array,
+  other_user: Object,
+  avatars:    Array,
+  members:    Array,
 })
 
-defineEmits(['back'])
+const emit = defineEmits(['back', 'update:room', 'update:otherUser'])
 
 const newMessage = ref('')
 const messages = ref([])
@@ -485,7 +493,6 @@ const activeMenuIndex = ref(null)
 const replyingTo = ref(null)
 const onlineUsers = ref([])
 
-
 const showProfileModal = ref(false)
 const isEditingBio = ref(false)
 const isSavingBio = ref(false)
@@ -496,7 +503,6 @@ const avatarList = ref([...(props.avatars || [])])
 
 const currentRoomAvatar = computed(() => {
   if (props.room.type === 'private') {
-
     return avatarList.value.length > 0 ? avatarList.value[0] : (props.other_user?.avatar || null)
   }
   return avatarList.value.length > 0 ? avatarList.value[0] : (props.room.avatar || null)
@@ -504,160 +510,148 @@ const currentRoomAvatar = computed(() => {
 const currentBio = ref('')
 const roomMembers = ref([])
 
-
 const initProfileData = () => {
   if (props.room.type === 'private') {
     currentBio.value = props.other_user?.bio || ''
   } else {
     currentBio.value = props.room.description || props.room.bio || ''
-    roomMembers.value = props.room.users || []
   }
+  roomMembers.value = props.members || []
   bioInput.value = currentBio.value
+}
+
+const getUserStatus = (member) => {
+  if (isUserOnline(member.id)) {
+    return 'آنلاین'
+  }
+
+  const lastSeen = member.last_seen_at || member.pivot?.last_seen_at
+
+  return lastSeen ? `آخرین بازدید: ${formatLastSeen(lastSeen)}` : 'آخرین بازدید نامشخص'
 }
 
 const showDeleteModal = ref(false)
 const selectedMessageToDelete = ref(null)
 const selectedMessageIndexToDelete = ref(null)
 
-
 const canManageGroup = computed(() => {
-    if (props.room.type === 'private') return false
-
-    return ['owner', 'admin'].includes(props.user_role)
+  if (props.room.type === 'private') return false
+  return ['owner', 'admin'].includes(props.user_role)
 })
 
 const isPartnerOnline = computed(() => {
-    if (!props.other_user) return false
-    return onlineUsers.value.some(u => u.id === props.other_user.id)
+  if (!props.other_user) return false
+  return onlineUsers.value.some(u => u.id === props.other_user.id)
 })
 
 const isUserOnline = (userId) => {
-    return onlineUsers.value.some(u => u.id === userId)
+  return onlineUsers.value.some(u => u.id === userId)
 }
 
 const openProfileModal = () => {
-    showProfileModal.value = true
+  showProfileModal.value = true
 }
 
 const closeProfileModal = () => {
-    showProfileModal.value = false
-    isEditingBio.value = false
+  showProfileModal.value = false
+  isEditingBio.value = false
 }
 
 const showGalleryModal = ref(false)
 
 const openGallery = () => {
-    if (currentRoomAvatar.value) {
-        showGalleryModal.value = true
-    }
+  if (currentRoomAvatar.value) {
+    showGalleryModal.value = true
+  }
 }
 
 const openBioEdit = () => {
-  bioInput.value = currentBio.value || '';
-  isEditingBio.value = true;
-};
-
+  bioInput.value = currentBio.value || ''
+  isEditingBio.value = true
+}
 
 const selectedAvatarFile = ref(null)
 const avatarPreviewUrl = ref(null)
 const isUploadingAvatar = ref(false)
 
-
 const onFileSelected = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-
-    selectedAvatarFile.value = file
-
-    avatarPreviewUrl.value = URL.createObjectURL(file)
+  const file = e.target.files[0]
+  if (!file) return
+  selectedAvatarFile.value = file
+  avatarPreviewUrl.value = URL.createObjectURL(file)
 }
 
-
 const cancelAvatarSelection = () => {
-    if (avatarPreviewUrl.value) {
-        URL.revokeObjectURL(avatarPreviewUrl.value)
-    }
-    selectedAvatarFile.value = null
-    avatarPreviewUrl.value = null
-    if (fileInput.value) {
-        fileInput.value.value = ''
-    }
+  if (avatarPreviewUrl.value) {
+    URL.revokeObjectURL(avatarPreviewUrl.value)
+  }
+  selectedAvatarFile.value = null
+  avatarPreviewUrl.value = null
+  if (fileInput.value) {
+    fileInput.value.value = ''
+  }
 }
 
 const confirmUploadAvatar = async () => {
-    if (!selectedAvatarFile.value || isUploadingAvatar.value) return
-    isUploadingAvatar.value = true
+  if (!selectedAvatarFile.value || isUploadingAvatar.value) return
+  isUploadingAvatar.value = true
 
-    const formData = new FormData()
-    formData.append('avatar', selectedAvatarFile.value)
+  const formData = new FormData()
+  formData.append('avatar', selectedAvatarFile.value)
 
-    try {
-        axios.defaults.headers.common["X-Socket-Id"] = Echo.socketId()
-        const res = await axios.post(`/chat/rooms/${props.room.id}/update-avatar`, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        })
+  try {
+    axios.defaults.headers.common["X-Socket-Id"] = Echo.socketId()
+    const res = await axios.post(`/chat/rooms/${props.room.id}/update-avatar`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
 
-        if (res.data && res.data.avatar) {
-            avatarList.value.unshift(res.data.avatar)
-        }
-
-        cancelAvatarSelection()
-    } catch (err) {
-        console.error('خطا در آپلود عکس:', err)
-    } finally {
-        isUploadingAvatar.value = false
+    if (res.data && res.data.avatar) {
+      avatarList.value.unshift(res.data.avatar)
     }
+
+    cancelAvatarSelection()
+  } catch (err) {
+    console.error('خطا در آپلود عکس:', err)
+  } finally {
+    isUploadingAvatar.value = false
+  }
 }
 
-// حذف عکس گروه
 const handleDeleteAvatar = async ({ image, index }) => {
-    if (!confirm('آیا از حذف این عکس مطمئن هستید؟')) return
+  if (!confirm('آیا از حذف این عکس مطمئن هستید؟')) return
 
-    try {
-        axios.defaults.headers.common["X-Socket-Id"] = Echo.socketId()
-        await axios.post(`/chat/rooms/${props.room.id}/delete-avatar`, {
-            image_url: image
-        })
+  try {
+    axios.defaults.headers.common["X-Socket-Id"] = Echo.socketId()
+    await axios.post(`/chat/rooms/${props.room.id}/delete-avatar`, {
+      image_url: image
+    })
 
-        avatarList.value.splice(index, 1)
+    avatarList.value.splice(index, 1)
 
-
-
-        if (avatarList.value.length === 0) {
-            showGalleryModal.value = false
-        }
-
-    } catch (err) {
-        console.error('خطا در حذف عکس:', err)
+    if (avatarList.value.length === 0) {
+      showGalleryModal.value = false
     }
+  } catch (err) {
+    console.error('خطا در حذف عکس:', err)
+  }
 }
 
-// ذخیره بایو جدید
 const saveBio = async () => {
-    if (isSavingBio.value) return
-    isSavingBio.value = true
+  if (isSavingBio.value) return
+  isSavingBio.value = true
 
-    try {
-        const res = await axios.post(`/chat/rooms/${props.room.id}/update-description`, {
-            description: bioInput.value
-        })
+  try {
+    await axios.post(`/chat/rooms/${props.room.id}/update-description`, {
+      description: bioInput.value
+    })
 
-
-        currentBio.value = bioInput.value
-
-
-        if (props.room.type === 'private') {
-            if (props.other_user) props.other_user.bio = bioInput.value
-        } else {
-            if (props.room) props.room.description = bioInput.value
-        }
-
-        isEditingBio.value = false
-    } catch (err) {
-        console.error('خطا در ثبت توضیحات:', err)
-    } finally {
-        isSavingBio.value = false
-    }
+    currentBio.value = bioInput.value
+    isEditingBio.value = false
+  } catch (err) {
+    console.error('خطا در ثبت توضیحات:', err)
+  } finally {
+    isSavingBio.value = false
+  }
 }
 
 const cancelEditBio = () => {
@@ -666,144 +660,183 @@ const cancelEditBio = () => {
 }
 
 const getInitials = (name) => {
-    if (!name) return '?'
-    const parts = name.trim().split(' ')
-    if (parts.length >= 2) {
-        return (parts[0][0] + parts[1][0]).toUpperCase()
-    }
-    return name.substring(0, 2).toUpperCase()
+  if (!name) return '?'
+  const parts = name.trim().split(' ')
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase()
+  }
+  return name.substring(0, 2).toUpperCase()
 }
 
-const formatLastSeen = (timestamp) => {
-    if (!timestamp) return 'اخیر'
-    const date = new Date(timestamp)
-    return date.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
+const formatLastSeen = (dateString) => {
+  if (!dateString) return 'نامشخص'
+  const formattedString = dateString.includes('T') ? dateString : dateString.replace(' ', 'T') + 'Z'
+  const date = new Date(formattedString)
+
+  if (isNaN(date.getTime())) {
+
+    date = new Date(dateString)
+  }
+
+  const now = new Date()
+
+
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const startOfYesterday = new Date(startOfToday)
+  startOfYesterday.setDate(startOfYesterday.getDate() - 1)
+
+  const startOfTargetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+
+
+  const timeFormatter = new Intl.DateTimeFormat('fa-IR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  })
+  const timeString = timeFormatter.format(date)
+
+  if (startOfTargetDate.getTime() === startOfToday.getTime()) {
+    return `ساعت ${timeString}`
+  }
+
+  if (startOfTargetDate.getTime() === startOfYesterday.getTime()) {
+    return `دیروز ساعت ${timeString}`
+  }
+
+
+  const fullDateFormatter = new Intl.DateTimeFormat('fa-IR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  })
+
+  return fullDateFormatter.format(date)
 }
 
 const canSendMessage = computed(() => {
-    if (props.room.type !== 'channel') {
-        return true
-    }
-    return ['owner', 'admin'].includes(props.user_role)
+  if (props.room.type !== 'channel') {
+    return true
+  }
+  return ['owner', 'admin'].includes(props.user_role)
 })
 
 const scrollToBottom = async () => {
-    await nextTick()
-    if (chatBox.value) {
-        chatBox.value.scrollTop = chatBox.value.scrollHeight
-    }
+  await nextTick()
+  if (chatBox.value) {
+    chatBox.value.scrollTop = chatBox.value.scrollHeight
+  }
 }
 
 const scrollToFirstUnread = async (unreadMessageId) => {
-    isSmooth.value = false
-    await nextTick()
+  isSmooth.value = false
+  await nextTick()
 
-    requestAnimationFrame(() => {
-        const element = document.getElementById(`msg-${unreadMessageId}`)
-        if (element) {
-            element.scrollIntoView({ behavior: 'auto', block: 'center' })
-        } else {
-            scrollToBottom()
-        }
+  requestAnimationFrame(() => {
+    const element = document.getElementById(`msg-${unreadMessageId}`)
+    if (element) {
+      element.scrollIntoView({ behavior: 'auto', block: 'center' })
+    } else {
+      scrollToBottom()
+    }
 
-        setTimeout(() => {
-            isSmooth.value = true
-        }, 100)
-    })
+    setTimeout(() => {
+      isSmooth.value = true
+    }, 100)
+  })
 }
 
 const formatTime = (timestamp) => {
-    if (!timestamp) return ''
-    const date = new Date(timestamp)
-    return date.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
+  if (!timestamp) return ''
+  const date = new Date(timestamp)
+  return date.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
 }
 
 const formatDateLabel = (timestamp) => {
-    if (!timestamp) return ''
-    const date = new Date(timestamp)
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
+  if (!timestamp) return ''
+  const date = new Date(timestamp)
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
 
-    const isToday = date.toDateString() === today.toDateString()
-    const isYesterday = date.toDateString() === yesterday.toDateString()
+  const isToday = date.toDateString() === today.toDateString()
+  const isYesterday = date.toDateString() === yesterday.toDateString()
 
-    if (isToday) return 'امروز'
-    if (isYesterday) return 'دیروز'
+  if (isToday) return 'امروز'
+  if (isYesterday) return 'دیروز'
 
-    return date.toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' })
+  return date.toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
 const shouldShowDateHeader = (index) => {
-    if (index === 0) return true
-    const currentDate = new Date(messages.value[index].created_at).toDateString()
-    const previousDate = new Date(messages.value[index - 1].created_at).toDateString()
-    return currentDate !== previousDate
+  if (index === 0) return true
+  const currentDate = new Date(messages.value[index].created_at).toDateString()
+  const previousDate = new Date(messages.value[index - 1].created_at).toDateString()
+  return currentDate !== previousDate
 }
 
 const handleScroll = () => {
-    if (!chatBox.value) return
-    const { scrollTop, scrollHeight, clientHeight } = chatBox.value
-    showScrollDownBtn.value = (scrollHeight - scrollTop - clientHeight) > 200
+  if (!chatBox.value) return
+  const { scrollTop, scrollHeight, clientHeight } = chatBox.value
+  showScrollDownBtn.value = (scrollHeight - scrollTop - clientHeight) > 200
 }
 
 const scrollToMessage = (msgId) => {
-    if (!msgId) return
-    const el = document.getElementById(`msg-${msgId}`)
-    if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-
-        el.classList.add('ring-2', 'ring-indigo-500')
-        setTimeout(() => el.classList.remove('ring-2', 'ring-indigo-500'), 2000)
-    }
+  if (!msgId) return
+  const el = document.getElementById(`msg-${msgId}`)
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.classList.add('ring-2', 'ring-indigo-500')
+    setTimeout(() => el.classList.remove('ring-2', 'ring-indigo-500'), 2000)
+  }
 }
 
 const initMessages = () => {
-    let firstUnreadId = null
+  let firstUnreadId = null
+  initProfileData()
 
+  messages.value = props.chats.map(msg => {
+    const isSender = msg.sender_id === props.user.id
 
-    initProfileData()
-
-    messages.value = props.chats.map(msg => {
-        const isSender = msg.sender_id === props.user.id
-
-        if (!isSender && (msg.is_read == 0 || msg.is_read === false) && !firstUnreadId) {
-            firstUnreadId = msg.id
-        }
-
-        return {
-            id: msg.id,
-            message: msg.message,
-            user: isSender ? 'sender' : 'receiver',
-            sender_name: msg.sender ? msg.sender.name : (msg.sender_name || 'کاربر'),
-            sender_avatar: msg.sender ? msg.sender.avatar : msg.sender_avatar,
-            reply_to: msg.parent || msg.reply_to || null,
-            is_read: msg.is_read,
-            created_at: msg.created_at || new Date().toISOString()
-        }
-    })
-
-    if (firstUnreadId) {
-        scrollToFirstUnread(firstUnreadId)
-    } else {
-        scrollToBottom()
-        setTimeout(() => {
-            isSmooth.value = true
-        }, 100)
+    if (!isSender && (msg.is_read == 0 || msg.is_read === false) && !firstUnreadId) {
+      firstUnreadId = msg.id
     }
+
+    return {
+      id: msg.id,
+      message: msg.message,
+      user: isSender ? 'sender' : 'receiver',
+      sender_name: msg.sender ? msg.sender.name : (msg.sender_name || 'کاربر'),
+      sender_avatar: msg.sender ? msg.sender.avatar : msg.sender_avatar,
+      reply_to: msg.parent || msg.reply_to || null,
+      is_read: msg.is_read,
+      created_at: msg.created_at || new Date().toISOString()
+    }
+  })
+
+  if (firstUnreadId) {
+    scrollToFirstUnread(firstUnreadId)
+  } else {
+    scrollToBottom()
+    setTimeout(() => {
+      isSmooth.value = true
+    }, 100)
+  }
 }
 
 const markAsRead = async (messageIds) => {
-    if (!messageIds || messageIds.length === 0) return
+  if (!messageIds || messageIds.length === 0) return
 
-    try {
-        axios.defaults.headers.common["X-Socket-Id"] = Echo.socketId()
-        await axios.post(`/chat/${props.room.id}/read`, {
-            message_ids: messageIds
-        })
-    } catch (e) {
-        console.error('خطا در به‌روزرسانی وضعیت سین پیام‌ها:', e)
-    }
+  try {
+    axios.defaults.headers.common["X-Socket-Id"] = Echo.socketId()
+    await axios.post(`/chat/${props.room.id}/read`, {
+      message_ids: messageIds
+    })
+  } catch (e) {
+    console.error('خطا در به‌روزرسانی وضعیت سین پیام‌ها:', e)
+  }
 }
 
 const toggleMessageMenu = (index) => {
@@ -830,9 +863,9 @@ const truncateText = (text) => {
 
 const openDeleteModal = (message, index) => {
   if (String(message.id).startsWith('temp-') || message.status === 'pending') {
-        alert('پیام هنوز ارسال نشده است. لطفا لحظه‌ای صبر کنید.')
-        return
-}
+    alert('پیام هنوز ارسال نشده است. لطفا لحظه‌ای صبر کنید.')
+    return
+  }
   activeMenuIndex.value = null
   selectedMessageToDelete.value = message
   selectedMessageIndexToDelete.value = index
@@ -844,9 +877,7 @@ const handleConfirmDelete = async (deleteType) => {
   const index = selectedMessageIndexToDelete.value
 
   showDeleteModal.value = false
-
   if (!message) return
-
 
   messages.value.splice(index, 1)
 
@@ -870,289 +901,255 @@ const pendingReadIds = new Set()
 let readTimeout = null
 
 const setupIntersectionObserver = () => {
-    const options = {
-        root: chatBox.value,
-        threshold: 0.1
-    }
+  if (observer) observer.disconnect()
 
-    observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                const msgId = entry.target.getAttribute('data-msg-id')
-                const isReceiver = entry.target.getAttribute('data-user') === 'receiver'
-                const isUnread = entry.target.getAttribute('data-is-read') === '0' || entry.target.getAttribute('data-is-read') === 'false' || entry.target.getAttribute('data-is-read') === false
+  const options = {
+    root: chatBox.value,
+    threshold: 0.1
+  }
 
-                if (msgId && isReceiver && isUnread) {
-                    pendingReadIds.add(Number(msgId))
+  observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const msgId = entry.target.getAttribute('data-msg-id')
+        const isReceiver = entry.target.getAttribute('data-user') === 'receiver'
+        const isUnread = entry.target.getAttribute('data-is-read') === '0' || entry.target.getAttribute('data-is-read') === 'false' || entry.target.getAttribute('data-is-read') === false
 
-                    clearTimeout(readTimeout)
-                    readTimeout = setTimeout(() => {
-                        if (pendingReadIds.size > 0) {
-                            const idsToSend = Array.from(pendingReadIds)
-                            markAsRead(idsToSend)
+        if (msgId && isReceiver && isUnread) {
+          pendingReadIds.add(Number(msgId))
 
-                            messages.value.forEach(m => {
-                                if (idsToSend.includes(m.id)) {
-                                    m.is_read = 1
-                                }
-                            })
+          clearTimeout(readTimeout)
+          readTimeout = setTimeout(() => {
+            if (pendingReadIds.size > 0) {
+              const idsToSend = Array.from(pendingReadIds)
+              markAsRead(idsToSend)
 
-                            pendingReadIds.clear()
-                        }
-                    }, 300)
+              messages.value.forEach(m => {
+                if (idsToSend.includes(m.id)) {
+                  m.is_read = 1
                 }
-            }
-        })
-    }, options)
+              })
 
-    attachObserverToMessages()
+              pendingReadIds.clear()
+            }
+          }, 300)
+        }
+      }
+    })
+  }, options)
+
+  attachObserverToMessages()
 }
 
 const attachObserverToMessages = () => {
-    if (!observer) return
+  if (!observer) return
 
-    nextTick(() => {
-        requestAnimationFrame(() => {
-            const messageElements = chatBox.value?.querySelectorAll('.message-bubble')
-            messageElements?.forEach(el => {
-                observer.unobserve(el)
-                observer.observe(el)
-            })
-        })
+  nextTick(() => {
+    requestAnimationFrame(() => {
+      const messageElements = chatBox.value?.querySelectorAll('.message-bubble')
+      messageElements?.forEach(el => {
+        observer.observe(el)
+      })
     })
+  })
 }
 
 const send = async () => {
-    if (!newMessage.value.trim()) return
+  if (!newMessage.value.trim()) return
 
-    const text = newMessage.value
-    const replyPayload = replyingTo.value ? { ...replyingTo.value } : null
+  const text = newMessage.value
+  const replyPayload = replyingTo.value ? { ...replyingTo.value } : null
 
-    newMessage.value = ''
-    replyingTo.value = null
+  newMessage.value = ''
+  replyingTo.value = null
 
-    // ۱. ایجاد آیدی موقت جهت نمایش آنی در UI
-    const tempId = 'temp-' + Date.now()
+  const tempId = 'temp-' + Date.now()
 
-    const tempMessage = {
-        id: tempId,
-        message: text,
-        user: 'sender',
-        reply_to: replyPayload,
-        is_read: 0,
-        status: 'pending', // ⏳ وضعیت در حال ارسال (برای آیکون تایمر)
-        created_at: new Date().toISOString()
+  const tempMessage = {
+    id: tempId,
+    message: text,
+    user: 'sender',
+    reply_to: replyPayload,
+    is_read: 0,
+    status: 'pending',
+    created_at: new Date().toISOString()
+  }
+
+  messages.value.push(tempMessage)
+  scrollToBottom()
+
+  try {
+    axios.defaults.headers.common["X-Socket-Id"] = Echo.socketId()
+    const res = await axios.post(`/chat/${props.room.id}/messages`, {
+      message: text,
+      reply_to_id: replyPayload ? replyPayload.id : null
+    })
+
+    const realId = res.data.message?.id || res.data.id
+
+    const index = messages.value.findIndex(m => m.id === tempId)
+    if (index !== -1 && realId) {
+      messages.value[index].id = realId
+      messages.value[index].status = 'sent'
     }
-
-    messages.value.push(tempMessage)
-    scrollToBottom()
-
-    try {
-        axios.defaults.headers.common["X-Socket-Id"] = Echo.socketId()
-        const res = await axios.post(`/chat/${props.room.id}/messages`, {
-            message: text,
-            reply_to_id: replyPayload ? replyPayload.id : null
-        })
-
-
-        const realId = res.data.message?.id || res.data.id
-
-        const index = messages.value.findIndex(m => m.id === tempId)
-        if (index !== -1 && realId) {
-            messages.value[index].id = realId
-            messages.value[index].status = 'sent'
-        }
-    } catch(e) {
-        console.error('خطا در ارسال:', e)
-        const index = messages.value.findIndex(m => m.id === tempId)
-        if (index !== -1) {
-            messages.value[index].status = 'failed'
-        }
+  } catch(e) {
+    console.error('خطا در ارسال:', e)
+    const index = messages.value.findIndex(m => m.id === tempId)
+    if (index !== -1) {
+      messages.value[index].status = 'failed'
     }
+  }
 }
 
 const getCookie = (name) => {
-    const value = `; ${document.cookie}`
-    const parts = value.split(`; ${name}=`)
-    if (parts.length === 2) return decodeURIComponent(parts.pop().split(';').shift())
-    return null
+  const value = `; ${document.cookie}`
+  const parts = value.split(`; ${name}=`)
+  if (parts.length === 2) return decodeURIComponent(parts.pop().split(';').shift())
+  return null
 }
 
 const sendLastSeen = () => {
-    const csrfMeta = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
-    const xsrfToken = getCookie('XSRF-TOKEN')
+  const csrfMeta = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+  const xsrfToken = getCookie('XSRF-TOKEN')
 
-    fetch('/user/last-seen', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-XSRF-TOKEN': xsrfToken || '',
-            'X-CSRF-TOKEN': csrfMeta || '',
-            'Accept': 'application/json',
-        },
-        credentials: 'same-origin',
-        keepalive: true
-    }).catch(err => console.error('خطای ثبت Last Seen:', err))
+  fetch('/user/last-seen', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-XSRF-TOKEN': xsrfToken || '',
+      'X-CSRF-TOKEN': csrfMeta || '',
+      'Accept': 'application/json',
+    },
+    credentials: 'same-origin',
+    keepalive: true
+  }).catch(err => console.error('خطای ثبت Last Seen:', err))
 }
 
 const handleVisibilityOrUnload = () => {
-    if (document.visibilityState === 'hidden') {
-        sendLastSeen()
-    }
+  if (document.visibilityState === 'hidden') {
+    sendLastSeen()
+  }
 }
 
 onMounted(() => {
-    initMessages()
-    setupIntersectionObserver()
-    sendLastSeen()
+  initMessages()
+  setupIntersectionObserver()
+  sendLastSeen()
 
-    Echo.private('message.' + props.room.id)
-        .listen('MessageEvent', (e) => {
-            const isSender = e.sender_id === props.user.id;
+  const channel = Echo.private('message.' + props.room.id)
 
-            const exists = messages.value.some(m => String(m.id) === String(e.id));
-            if (exists) return;
+  channel.listen('MessageEvent', (e) => {
+    const isSender = e.sender_id === props.user.id
+    const exists = messages.value.some(m => String(m.id) === String(e.id))
+    if (exists) return
 
-            messages.value.push({
-                id: e.id,
-                message: e.message,
-                user: isSender ? 'sender' : 'receiver',
-                sender_name: e.sender_name || (e.sender ? e.sender.name : 'کاربر'),
-                sender_avatar: e.sender_avatar || (e.sender ? e.sender.avatar : null),
-                reply_to: e.reply_to,
-                is_read: e.is_read,
-                created_at: e.created_at || new Date().toISOString()
-            })
+    messages.value.push({
+      id: e.id,
+      message: e.message,
+      user: isSender ? 'sender' : 'receiver',
+      sender_name: e.sender_name || (e.sender ? e.sender.name : 'کاربر'),
+      sender_avatar: e.sender_avatar || (e.sender ? e.sender.avatar : null),
+      reply_to: e.reply_to,
+      is_read: e.is_read,
+      created_at: e.created_at || new Date().toISOString()
+    })
 
-            attachObserverToMessages()
+    attachObserverToMessages()
 
-            if (!showScrollDownBtn.value || isSender) {
-                scrollToBottom()
-            }
+    if (!showScrollDownBtn.value || isSender) {
+      scrollToBottom()
+    }
 
-            if (!isSender) {
-                nextTick(() => {
-                    if (!showScrollDownBtn.value) {
-                        setTimeout(() => {
-                            markAsRead([e.id]);
-                        }, 200);
-                    }
-                })
-            }
-        })
+    if (!isSender) {
+      nextTick(() => {
+        if (!showScrollDownBtn.value) {
+          setTimeout(() => {
+            markAsRead([e.id])
+          }, 200)
+        }
+      })
+    }
+  })
 
+  channel.listen('MessagesReadEvent', (e) => {
+    if (e.message_ids && Array.isArray(e.message_ids)) {
+      messages.value.forEach(msg => {
+        if (msg.user === 'sender' && e.message_ids.includes(msg.id)) {
+          msg.is_read = 1
+        }
+      })
+    } else {
+      messages.value.forEach(msg => {
+        if (msg.user === 'sender') {
+          msg.is_read = 1
+        }
+      })
+    }
+  })
 
-    Echo.private('message.' + props.room.id)
-        .listen('MessagesReadEvent', (e) => {
-            if (e.message_ids && Array.isArray(e.message_ids)) {
-                messages.value.forEach(msg => {
-                    if (msg.user === 'sender' && e.message_ids.includes(msg.id)) {
-                        msg.is_read = 1;
-                    }
-                })
-            } else {
-                messages.value.forEach(msg => {
-                    if (msg.user === 'sender') {
-                        msg.is_read = 1;
-                    }
-                })
-            }
-        })
+  channel.listen('DeleteEvent', (e) => {
+    const index = messages.value.findIndex(m => String(m.id) === String(e.messageId))
+    if (index !== -1) {
+      messages.value.splice(index, 1)
+    }
+  })
 
-    window.addEventListener('beforeunload', sendLastSeen)
-    document.addEventListener('visibilitychange', handleVisibilityOrUnload)
+  channel.listen('BioEvent', (e) => {
+    currentBio.value = e.description
+  })
 
-    Echo.join(`chat.presence.${props.room.id}`)
-        .here((users) => {
-            onlineUsers.value = users
-        })
-        .joining((user) => {
-            if (!onlineUsers.value.some(u => u.id === user.id)) {
-                onlineUsers.value.push(user)
-            }
-        })
-        .leaving((leavingUser) => {
-            onlineUsers.value = onlineUsers.value.filter(u => u.id !== leavingUser.id)
+  channel.listen('AvatarEvent', (e) => {
+    if (e.path) {
+      avatarList.value.unshift(e.path)
+    }
+  })
 
-            if (props.other_user && leavingUser.id === props.other_user.id) {
-                props.other_user.last_seen_at = new Date().toISOString()
-            }
-        })
-        .error((error) => {
-            console.error('خطای Presence Channel:', error)
-        })
+  channel.listen('DeleteAvatarEvent', (e) => {
+    if (e.path) {
+      const targetUrl = e.path
+      const index = avatarList.value.findIndex(img => img === targetUrl)
 
-        Echo.private('message.' + props.room.id)
-            .listen('DeleteEvent', (e) => {
+      if (index !== -1) {
+        avatarList.value.splice(index, 1)
+      }
 
+      if (avatarList.value.length === 0) {
+        showGalleryModal.value = false
+      }
+    }
+  })
 
-            const index = messages.value.findIndex(
-                m => String(m.id) === String(e.messageId)
-            );
+  window.addEventListener('beforeunload', sendLastSeen)
+  document.addEventListener('visibilitychange', handleVisibilityOrUnload)
 
-
-
-            if (index !== -1) {
-                messages.value.splice(index, 1);
-
-            }
-            });
-
-
-            Echo.private('message.' + props.room.id)
-                .listen('BioEvent', (e) => {
-
-                currentBio.value = e.description;
-
-            });
-
-            Echo.private('message.' + props.room.id)
-                .listen('AvatarEvent', (e) => {
-                    if (e.path) {
-
-                        avatarList.value.unshift(e.path)
-
-                    if (props.room.type === 'private' && props.other_user) {
-                        props.other_user.avatar = e.path
-                        }
-                    }
-
-            });
-
-            Echo.private('message.' + props.room.id)
-                .listen('DeleteAvatarEvent', (e) => {
-                    if (e.path) {
-                        const targetUrl = e.path
-
-                        const index = avatarList.value.findIndex(img => img === targetUrl)
-
-
-                        if (index !== -1) {
-                            avatarList.value.splice(index, 1)
-                        }
-
-
-                        if (props.room.type === 'private' && props.other_user?.avatar === targetUrl) {
-                            props.other_user.avatar = avatarList.value.length > 0 ? avatarList.value[0] : null
-                        }
-
-
-                        if (avatarList.value.length === 0) {
-                            showGalleryModal.value = false
-                        }
-                    }
-                });
-
-
-
-
+  Echo.join(`chat.presence.${props.room.id}`)
+    .here((users) => {
+      onlineUsers.value = users
+    })
+    .joining((user) => {
+      if (!onlineUsers.value.some(u => u.id === user.id)) {
+        onlineUsers.value.push(user)
+      }
+    })
+    .leaving((leavingUser) => {
+      onlineUsers.value = onlineUsers.value.filter(u => u.id !== leavingUser.id)
+    })
+    .error((error) => {
+      console.error('خطای Presence Channel:', error)
+    })
 })
 
 onUnmounted(() => {
-    window.removeEventListener('beforeunload', sendLastSeen)
-    document.removeEventListener('visibilitychange', handleVisibilityOrUnload)
+  if (observer) {
+    observer.disconnect()
+    observer = null
+  }
 
-    sendLastSeen()
-    Echo.leave(`chat.presence.${props.room.id}`)
+  window.removeEventListener('beforeunload', sendLastSeen)
+  document.removeEventListener('visibilitychange', handleVisibilityOrUnload)
+
+  sendLastSeen()
+  Echo.leave(`chat.presence.${props.room.id}`)
+  Echo.leave(`message.${props.room.id}`)
 })
 </script>

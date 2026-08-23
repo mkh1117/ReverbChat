@@ -29,3 +29,13 @@ Broadcast::channel('chat.presence.{roomId}', function ($user, $roomId) {
     return false;
 
 });
+
+// Broadcast::channel('online-users', function ($user) {
+//     if ($user) {
+//         return [
+//             'id'   => $user->id,
+//             'name' => $user->name,
+//         ];
+//     }
+//     return false;
+// });

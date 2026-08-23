@@ -16,26 +16,26 @@ Broadcast::channel('message.{room_id}', function($user,$room_id){
     return room_user::where('room_id',(int) $room_id)->where('user_id', $userid)->exists();
 });
 
-Broadcast::channel('chat.presence.{roomId}', function ($user, $roomId) {
-    $ismember = DB::table('room_users')->where('room_id',$roomId)->where('user_id',$user->id)->exists();
+// Broadcast::channel('chat.presence.{roomId}', function ($user, $roomId) {
+//     $ismember = DB::table('room_users')->where('room_id',$roomId)->where('user_id',$user->id)->exists();
 
-    if ($ismember){
-        return [
-            'id' => $user->id,
-            'name' => $user->name,
-        ];
-
-    }
-    return false;
-
-});
-
-// Broadcast::channel('online-users', function ($user) {
-//     if ($user) {
+//     if ($ismember){
 //         return [
-//             'id'   => $user->id,
+//             'id' => $user->id,
 //             'name' => $user->name,
 //         ];
+
 //     }
 //     return false;
+
 // });
+
+Broadcast::channel('online-users', function ($user) {
+    if ($user) {
+        return [
+            'id'   => $user->id,
+            'name' => $user->name,
+        ];
+    }
+    return false;
+});

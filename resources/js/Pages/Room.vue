@@ -40,8 +40,8 @@
 
         <div class="text-xs font-medium mt-0.5">
           <span v-if="room.type === 'channel'" class="text-gray-400">کانال عمومی</span>
-          <span v-else-if="room.type === 'group'" class="text-gray-400">
-            {{ roomMembers.length || onlineUsers.length }} عضو ، {{ onlineUsers.length }} آنلاین
+          <span v-else-if="room.type === 'group'" class="text-gray-400" dir="rtl">
+            {{ roomMembers.length }} عضو ، {{ groupOnlineCount }} آنلاین
           </span>
           <template v-else>
             <span v-if="isPartnerOnline" class="text-green-500 flex items-center gap-1">
@@ -412,7 +412,7 @@
         <div class="flex flex-col min-w-0">
           <span class="text-xs font-medium text-gray-800 truncate">{{ member.name }}</span>
 
-          
+
           <span
             class="text-[10px]"
             :class="isUserOnline(member.id) ? 'text-green-500 font-medium' : 'text-gray-400'"
@@ -469,6 +469,7 @@ import axios from 'axios'
 import '../echo'
 import DeleteMessageModal from './../Components/chat/DeleteMessageModal.vue'
 import AvatarGalleryModal from './../Components/chat/AvatarGalleryModal.vue'
+import { globalOnlineUsers } from '../app.js'
 
 const props = defineProps({
   user:       Object,
@@ -530,6 +531,14 @@ const getUserStatus = (member) => {
   return lastSeen ? `آخرین بازدید: ${formatLastSeen(lastSeen)}` : 'آخرین بازدید نامشخص'
 }
 
+const groupOnlineCount = computed(() => {
+  if (!roomMembers.value || !globalOnlineUsers.value) return 0
+
+  return roomMembers.value.filter(member =>
+    globalOnlineUsers.value.some(onlineId => String(onlineId) === String(member.id))
+  ).length
+})
+
 const showDeleteModal = ref(false)
 const selectedMessageToDelete = ref(null)
 const selectedMessageIndexToDelete = ref(null)
@@ -541,11 +550,11 @@ const canManageGroup = computed(() => {
 
 const isPartnerOnline = computed(() => {
   if (!props.other_user) return false
-  return onlineUsers.value.some(u => u.id === props.other_user.id)
+  return globalOnlineUsers.value.includes(props.other_user.id)
 })
 
 const isUserOnline = (userId) => {
-  return onlineUsers.value.some(u => u.id === userId)
+  return globalOnlineUsers.value.includes(userId)
 }
 
 const openProfileModal = () => {
@@ -1008,33 +1017,13 @@ const getCookie = (name) => {
   return null
 }
 
-const sendLastSeen = () => {
-  const csrfMeta = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
-  const xsrfToken = getCookie('XSRF-TOKEN')
 
-  fetch('/user/last-seen', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-XSRF-TOKEN': xsrfToken || '',
-      'X-CSRF-TOKEN': csrfMeta || '',
-      'Accept': 'application/json',
-    },
-    credentials: 'same-origin',
-    keepalive: true
-  }).catch(err => console.error('خطای ثبت Last Seen:', err))
-}
 
-const handleVisibilityOrUnload = () => {
-  if (document.visibilityState === 'hidden') {
-    sendLastSeen()
-  }
-}
+
 
 onMounted(() => {
   initMessages()
   setupIntersectionObserver()
-  sendLastSeen()
 
   const channel = Echo.private('message.' + props.room.id)
 
@@ -1119,24 +1108,8 @@ onMounted(() => {
     }
   })
 
-  window.addEventListener('beforeunload', sendLastSeen)
-  document.addEventListener('visibilitychange', handleVisibilityOrUnload)
 
-  Echo.join(`chat.presence.${props.room.id}`)
-    .here((users) => {
-      onlineUsers.value = users
-    })
-    .joining((user) => {
-      if (!onlineUsers.value.some(u => u.id === user.id)) {
-        onlineUsers.value.push(user)
-      }
-    })
-    .leaving((leavingUser) => {
-      onlineUsers.value = onlineUsers.value.filter(u => u.id !== leavingUser.id)
-    })
-    .error((error) => {
-      console.error('خطای Presence Channel:', error)
-    })
+
 })
 
 onUnmounted(() => {
@@ -1145,11 +1118,6 @@ onUnmounted(() => {
     observer = null
   }
 
-  window.removeEventListener('beforeunload', sendLastSeen)
-  document.removeEventListener('visibilitychange', handleVisibilityOrUnload)
-
-  sendLastSeen()
-  Echo.leave(`chat.presence.${props.room.id}`)
   Echo.leave(`message.${props.room.id}`)
 })
 </script>

@@ -64,13 +64,23 @@
           <span class="text-xs font-semibold text-gray-400 tracking-wider">گفتگوهای اخیر</span>
           <span class="text-xs text-gray-400 bg-gray-200/60 px-2 py-0.5 rounded-full">{{ localRooms.length }} مکالمه</span>
         </div>
-        <RoomItem v-for="room in localRooms" :key="room.id" :room="room" />
+        <RoomItem
+              v-for="room in sortedRooms"
+              :key="room.id"
+              :room="room"
+              :is-online="isRoomPartnerOnline(room)"
+            />
       </div>
 
       <!-- نتایج جستجو -->
       <div v-else class="space-y-1">
         <template v-if="search.length > 0">
-          <RoomItem v-for="room in filteredRooms" :key="room.id" :room="room" />
+          <RoomItem
+              v-for="room in filteredRooms"
+              :key="room.id"
+              :room="room"
+              :is-online="isRoomPartnerOnline(room)"
+            />
 
           <div v-if="filteredRooms.length === 0" class="flex flex-col items-center justify-center py-20 text-gray-400">
             <div class="p-4 bg-gray-100 rounded-full mb-3">
@@ -102,6 +112,7 @@ import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { usePage } from '@inertiajs/vue3'
 import RoomItem from '../Components/RoomItem.vue'
 import NewGroup from '../Components/NewGroup.vue'
+import { globalOnlineUsers } from '../app.js'
 
 // اصلاح Props اصلی: دریافت همزمان rooms و contacts از لاراول
 const props = defineProps({
@@ -111,6 +122,23 @@ const props = defineProps({
 
 const localRooms = ref([...props.rooms])
 const currentUserId = usePage().props.auth.user.id
+
+const isRoomPartnerOnline = (room) => {
+  if (room.type !== 'private') return false
+  const partner = room.users && room.users[0]
+  if (!partner) return false
+
+  return globalOnlineUsers.value.some(id => String(id) === String(partner.id))
+}
+
+const sortedRooms = computed(() => {
+  return [...localRooms.value].sort((a, b) => {
+    const dateA = a.messages && a.messages[0] ? new Date(a.messages[0].created_at) : new Date(0)
+    const dateB = b.messages && b.messages[0] ? new Date(b.messages[0].created_at) : new Date(0)
+    return dateB - dateA
+  })
+})
+
 
 const totalUnread = computed(() => {
   return localRooms.value.reduce((acc, room) => acc + (room.unread_count || 0), 0)
@@ -131,7 +159,7 @@ const toggleSearch = async () => {
 }
 
 const filteredRooms = computed(() =>
-  localRooms.value.filter(room =>
+  sortedRooms.value.filter(room =>
     room.name.toLowerCase().includes(search.value.toLowerCase())
   )
 )
@@ -144,15 +172,20 @@ onMounted(() => {
         const myId = Number(currentUserId)
         const roomId = e.room_id
 
-        if (senderId !== myId) {
-          const targetRoom = localRooms.value.find(r => r.id === roomId)
-          if (targetRoom) {
+        const targetRoom = localRooms.value.find(r => r.id === roomId)
+        if (targetRoom) {
+
+          targetRoom.messages = [{
+            id: e.id,
+            message: e.message,
+            created_at: e.created_at || new Date().toISOString()
+          }]
+
+          if (senderId !== myId) {
             targetRoom.unread_count = (targetRoom.unread_count || 0) + 1
-            localRooms.value = [
-              targetRoom,
-              ...localRooms.value.filter(r => r.id !== targetRoom.id)
-            ]
           }
+
+          localRooms.value = [...localRooms.value]
         }
       })
   })

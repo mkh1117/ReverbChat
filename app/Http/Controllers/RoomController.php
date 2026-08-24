@@ -22,15 +22,25 @@ class RoomController extends Controller
     public function main(){
         $userId=Auth::id();
         $rooms = Room::query()
-        ->select('id', 'name', 'type')
+        ->select('rooms.id', 'rooms.name', 'rooms.type')
         ->whereHas('users', function ($query) use ($userId) {
             $query->where('users.id', $userId);
         })
+        ->with(['messages' => function ($query) {
+            $query->latest()->limit(1);
+        }])
+        ->with(['users' => function ($query) use ($userId) {
+            $query->where('users.id', '!=', $userId)->select('users.id', 'users.name');
+        }])
         ->withCount(['messages as unread_count' => function ($query) use ($userId) {
             $query->where('is_read', false)
                   ->where('sender_id', '!=', $userId);
         }])
-        ->get();
+        ->get()
+        ->sortByDesc(function ($room) {
+            return optional($room->messages->first())->created_at;
+        })
+        ->values();
 
         $contacts=Contact::where('owner_id',$userId)->get();
 

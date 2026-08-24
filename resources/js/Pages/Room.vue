@@ -96,16 +96,16 @@
           </div>
 
           <div class="relative group max-w-xs md:max-w-md" :class="m.user === 'sender' ? 'self-end' : 'self-start'">
-                <div
-                  @click.stop="m.status !== 'pending' && toggleMessageMenu(index)"
-                  class="flex flex-col rounded-2xl shadow-sm text-sm leading-relaxed select-none transition-all overflow-hidden pb-1"
-                  :class="[
-                    m.user === 'sender'
-                      ? 'bg-blue-600 text-white rounded-bl-none self-end'
-                      : 'bg-white text-gray-800 rounded-br-none border border-gray-100 self-start',
-                    m.status === 'pending' ? 'opacity-70 cursor-wait' : 'cursor-pointer active:opacity-90'
-                  ]"
-                >
+            <div
+              @click.stop="m.status !== 'pending' && toggleMessageMenu(index)"
+              class="flex flex-col rounded-2xl shadow-sm text-sm leading-relaxed select-none transition-all overflow-hidden pb-1"
+              :class="[
+                m.user === 'sender'
+                  ? 'bg-blue-600 text-white rounded-bl-none self-end'
+                  : 'bg-white text-gray-800 rounded-br-none border border-gray-100 self-start',
+                m.status === 'pending' ? 'opacity-70 cursor-wait' : 'cursor-pointer active:opacity-90'
+              ]"
+            >
               <div
                 v-if="m.reply_to"
                 @click.stop="scrollToMessage(m.reply_to.id)"
@@ -138,21 +138,17 @@
                   <span>{{ formatTime(m.created_at) }}</span>
 
                   <template v-if="m.user === 'sender'">
-
                     <svg v-if="m.status === 'pending'" class="w-3.5 h-3.5 text-blue-200 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-
 
                     <svg v-else-if="m.status === 'failed'" class="w-3.5 h-3.5 text-red-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" title="عدم ارسال پیام">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
 
-
                     <svg v-else-if="m.is_read" class="w-3.5 h-3.5 text-sky-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7M10 17l4 4L23 9" />
                     </svg>
-
 
                     <svg v-else class="w-3.5 h-3.5 text-blue-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
@@ -162,7 +158,7 @@
               </div>
             </div>
 
-            <!-- منوی منوی عملیات پیام -->
+            <!-- منوی عملیات پیام -->
             <div v-if="activeMenuIndex === index"
               class="absolute top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl py-1 z-30 min-w-[110px]"
               :class="m.user === 'sender' ? 'left-0' : 'right-0'"
@@ -240,209 +236,6 @@
       </template>
     </div>
 
-    <!-- 👤 مودال پروفایل و مدیریت گروه -->
-    <div
-      v-if="showProfileModal"
-      class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-      @click.self="closeProfileModal"
-    >
-      <div class="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] transform transition-all animate-fade-in">
-
-        <!-- هدر مودال -->
-        <div class="bg-gradient-to-b from-blue-600 to-blue-500 pt-8 pb-6 px-6 flex flex-col items-center relative text-white flex-shrink-0">
-          <button
-            @click="closeProfileModal"
-            class="absolute top-4 left-4 text-white/80 hover:text-white p-1 rounded-full bg-white/10 hover:bg-white/20 transition-all"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-          </button>
-
-          <!-- بخش آواتار در مودال پروفایل -->
-          <div class="relative group w-24 h-24 rounded-full border-4 border-white/20 shadow-lg overflow-hidden mb-3">
-            <img
-              v-if="avatarPreviewUrl || currentRoomAvatar"
-              :src="avatarPreviewUrl || currentRoomAvatar"
-              :alt="chat_name"
-              class="w-full h-full object-cover"
-            />
-            <div v-else class="w-full h-full bg-white/20 flex items-center justify-center font-bold text-2xl text-white">
-              {{ getInitials(chat_name) }}
-            </div>
-
-            <!-- دکمه‌های مدیریت تصویر (فقط ادمین/مالک) -->
-            <div
-              v-if="canManageGroup"
-              class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2"
-            >
-              <!-- انتخاب عکس -->
-              <label class="p-2 bg-white/20 hover:bg-white/40 rounded-full cursor-pointer text-white transition-all" title="تغییر تصویر">
-                <input type="file" ref="fileInput" accept="image/*" class="hidden" @change="onFileSelected" />
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><circle cx="12" cy="13" r="3"/></svg>
-              </label>
-
-              <!-- حذف عکس -->
-              <button
-                v-if="currentRoomAvatar"
-                @click="removeAvatar"
-                class="p-2 bg-red-500/80 hover:bg-red-600 rounded-full text-white transition-all"
-                title="حذف تصویر"
-              >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-              </button>
-            </div>
-          </div>
-
-          <!-- 🖼️ مودال پیش‌نمایش و تأیید آپلود عکس -->
-          <div
-            v-if="selectedAvatarFile"
-            class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
-            dir="rtl"
-          >
-            <div class="bg-white rounded-3xl p-5 w-full max-w-xs text-center space-y-4 shadow-2xl animate-fade-in">
-              <h4 class="text-sm font-bold text-gray-800">پیش‌نمایش تصویر جدید</h4>
-
-              <div class="w-32 h-32 mx-auto rounded-full overflow-hidden border-2 border-blue-500 shadow-inner">
-                <img :src="avatarPreviewUrl" class="w-full h-full object-cover" />
-              </div>
-
-              <div class="flex items-center justify-center gap-2 pt-2">
-                <button
-                  @click="confirmUploadAvatar"
-                  :disabled="isUploadingAvatar"
-                  class="flex-1 py-2 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-md disabled:opacity-50 transition-all"
-                >
-                  {{ isUploadingAvatar ? 'در حال آپلود...' : 'ذخیره تصویر' }}
-                </button>
-                <button
-                  @click="cancelAvatarSelection"
-                  :disabled="isUploadingAvatar"
-                  class="flex-1 py-2 px-3 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium rounded-xl transition-all"
-                >
-                  انصراف
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <h3 class="text-lg font-bold text-white text-center">{{ chat_name }}</h3>
-          <p v-if="room.type === 'private' && other_user?.username" class="text-xs text-blue-100 mt-0.5">@{{ other_user.username }}</p>
-        </div>
-
-        <!-- بدنه مودال (بایو و اعضا) -->
-        <div class="p-5 space-y-5 text-right overflow-y-auto flex-1" dir="rtl">
-
-
-          <!-- ویرایش/نمایش بایو -->
-        <div class="space-y-1.5">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold text-gray-400">
-              {{ room.type === 'private' ? 'بیوگرافی کاربر' : 'توضیحات گروه' }}
-            </span>
-
-            <!-- دکمه ویرایش فقط برای گروه/کانال و توسط مدیر/مالک -->
-            <button
-              v-if="room.type !== 'private' && canManageGroup && !isEditingBio"
-              @click="openBioEdit"
-              class="text-xs text-blue-600 font-medium hover:underline"
-            >
-              ویرایش
-            </button>
-          </div>
-
-          <!-- حالت ویرایش بایو (فقط برای گروه/کانال) -->
-          <div v-if="isEditingBio" class="space-y-2">
-            <textarea
-              v-model="bioInput"
-              rows="3"
-              class="w-full text-xs text-gray-700 bg-gray-50 border border-blue-300 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              :placeholder="room.type === 'channel' ? 'توضیحات کانال را وارد کنید...' : 'توضیحات گروه را وارد کنید...'"
-            ></textarea>
-            <div class="flex justify-end gap-2">
-              <button
-                @click="isEditingBio = false"
-                class="px-3 py-1 text-xs text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                انصراف
-              </button>
-              <button
-                @click="saveBio"
-                :disabled="isSavingBio"
-                class="px-3 py-1 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-              >
-                {{ isSavingBio ? 'در حال ثبت...' : 'ذخیره' }}
-              </button>
-            </div>
-          </div>
-
-          <!-- حالت نمایش بایو -->
-          <div v-else class="bg-gray-50 p-3 rounded-2xl border border-gray-100">
-            <p v-if="currentBio" class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
-              {{ currentBio }}
-            </p>
-            <p v-else class="text-xs text-gray-400 italic">
-              {{ room.type === 'private' ? 'بیوگرافی ثبت نشده است.' : 'توضیحاتی برای این روم ثبت نشده است.' }}
-            </p>
-          </div>
-        </div>
-
-          <!-- لیست کاربران (فقط برای گروه) -->
-          <!-- لیست کاربران (برای گروه) -->
-<div v-if="room.type === 'group'" class="space-y-2">
-  <div class="flex items-center justify-between border-b border-gray-100 pb-2">
-    <span class="text-xs font-semibold text-gray-400">اعضای گروه</span>
-    <span class="text-xs bg-blue-50 text-blue-600 font-bold px-2 py-0.5 rounded-full">
-      {{ roomMembers.length }} نفر
-    </span>
-  </div>
-
-  <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
-    <div
-      v-for="member in roomMembers"
-      :key="member.id"
-      class="flex items-center justify-between py-1.5 px-2 hover:bg-gray-50 rounded-xl transition-all"
-    >
-      <div class="flex items-center gap-2.5 min-w-0">
-        <div class="w-8 h-8 rounded-full overflow-hidden bg-slate-200 flex-shrink-0 relative">
-          <img v-if="member.avatar" :src="member.avatar" class="w-full h-full object-cover" />
-          <div v-else class="w-full h-full bg-blue-500 text-white text-xs font-bold flex items-center justify-center">
-            {{ getInitials(member.name) }}
-          </div>
-        </div>
-
-        <div class="flex flex-col min-w-0">
-          <span class="text-xs font-medium text-gray-800 truncate">{{ member.name }}</span>
-
-
-          <span
-            class="text-[10px]"
-            :class="isUserOnline(member.id) ? 'text-green-500 font-medium' : 'text-gray-400'"
-          >
-            {{ getUserStatus(member) }}
-          </span>
-        </div>
-      </div>
-
-      <!-- نشان نقش کاربر -->
-      <span
-        v-if="member.role === 'owner'"
-        class="text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200 px-2 py-0.5 rounded-md"
-      >
-        مالک
-      </span>
-      <span
-        v-else-if="member.role === 'admin'"
-        class="text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-md"
-      >
-        مدیر
-      </span>
-    </div>
-  </div>
-</div>
-
-        </div>
-      </div>
-    </div>
-
     <!-- 🗑️ مودال تأیید حذف پیام -->
     <DeleteMessageModal
       :isOpen="showDeleteModal"
@@ -450,15 +243,34 @@
       @confirm="handleConfirmDelete"
     />
 
+    <!-- 🖼️ گالری تصاویر آواتار -->
     <AvatarGalleryModal
-  :show="showGalleryModal"
-  :avatars="avatarList"
-  :current-avatar="currentRoomAvatar"
-  :title="chat_name"
-  :can-delete="user_role === 'admin' || user_role === 'owner'"
-  @delete="handleDeleteAvatar"
-  @close="showGalleryModal = false"
-/>
+      :show="showGalleryModal"
+      :avatars="avatarList"
+      :current-avatar="currentRoomAvatar"
+      :title="chat_name"
+      :can-delete="user_role === 'admin' || user_role === 'owner'"
+      @delete="handleDeleteAvatar"
+      @close="showGalleryModal = false"
+    />
+
+    <!-- 👤 مودال پروفایل و مدیریت روم -->
+    <RoomProfileModal
+      :isOpen="showProfileModal"
+      :room="room"
+      :chatName="chat_name"
+      :userRole="user_role"
+      :otherUser="other_user"
+      :currentAvatar="currentRoomAvatar"
+      :bio="currentBio"
+      :members="roomMembers"
+      :onlineUsers="globalOnlineUsers"
+      @close="showProfileModal = false"
+      @update-bio="newBio => currentBio = newBio"
+      @add-member-success="newMember => roomMembers.push(newMember)"
+      @upload-avatar="newPath => avatarList.unshift(newPath)"
+      @remove-avatar="handleDeleteAvatar"
+    />
 
   </div>
 </template>
@@ -469,6 +281,7 @@ import axios from 'axios'
 import '../echo'
 import DeleteMessageModal from './../Components/chat/DeleteMessageModal.vue'
 import AvatarGalleryModal from './../Components/chat/AvatarGalleryModal.vue'
+import RoomProfileModal from './../Components/chat/RoomProfileModal.vue'
 import { globalOnlineUsers } from '../app.js'
 
 const props = defineProps({
@@ -492,14 +305,8 @@ const isSmooth = ref(false)
 
 const activeMenuIndex = ref(null)
 const replyingTo = ref(null)
-const onlineUsers = ref([])
 
 const showProfileModal = ref(false)
-const isEditingBio = ref(false)
-const isSavingBio = ref(false)
-const bioInput = ref('')
-const fileInput = ref(null)
-
 const avatarList = ref([...(props.avatars || [])])
 
 const currentRoomAvatar = computed(() => {
@@ -518,17 +325,6 @@ const initProfileData = () => {
     currentBio.value = props.room.description || props.room.bio || ''
   }
   roomMembers.value = props.members || []
-  bioInput.value = currentBio.value
-}
-
-const getUserStatus = (member) => {
-  if (isUserOnline(member.id)) {
-    return 'آنلاین'
-  }
-
-  const lastSeen = member.last_seen_at || member.pivot?.last_seen_at
-
-  return lastSeen ? `آخرین بازدید: ${formatLastSeen(lastSeen)}` : 'آخرین بازدید نامشخص'
 }
 
 const groupOnlineCount = computed(() => {
@@ -543,27 +339,13 @@ const showDeleteModal = ref(false)
 const selectedMessageToDelete = ref(null)
 const selectedMessageIndexToDelete = ref(null)
 
-const canManageGroup = computed(() => {
-  if (props.room.type === 'private') return false
-  return ['owner', 'admin'].includes(props.user_role)
-})
-
 const isPartnerOnline = computed(() => {
   if (!props.other_user) return false
   return globalOnlineUsers.value.includes(props.other_user.id)
 })
 
-const isUserOnline = (userId) => {
-  return globalOnlineUsers.value.includes(userId)
-}
-
 const openProfileModal = () => {
   showProfileModal.value = true
-}
-
-const closeProfileModal = () => {
-  showProfileModal.value = false
-  isEditingBio.value = false
 }
 
 const showGalleryModal = ref(false)
@@ -571,58 +353,6 @@ const showGalleryModal = ref(false)
 const openGallery = () => {
   if (currentRoomAvatar.value) {
     showGalleryModal.value = true
-  }
-}
-
-const openBioEdit = () => {
-  bioInput.value = currentBio.value || ''
-  isEditingBio.value = true
-}
-
-const selectedAvatarFile = ref(null)
-const avatarPreviewUrl = ref(null)
-const isUploadingAvatar = ref(false)
-
-const onFileSelected = (e) => {
-  const file = e.target.files[0]
-  if (!file) return
-  selectedAvatarFile.value = file
-  avatarPreviewUrl.value = URL.createObjectURL(file)
-}
-
-const cancelAvatarSelection = () => {
-  if (avatarPreviewUrl.value) {
-    URL.revokeObjectURL(avatarPreviewUrl.value)
-  }
-  selectedAvatarFile.value = null
-  avatarPreviewUrl.value = null
-  if (fileInput.value) {
-    fileInput.value.value = ''
-  }
-}
-
-const confirmUploadAvatar = async () => {
-  if (!selectedAvatarFile.value || isUploadingAvatar.value) return
-  isUploadingAvatar.value = true
-
-  const formData = new FormData()
-  formData.append('avatar', selectedAvatarFile.value)
-
-  try {
-    axios.defaults.headers.common["X-Socket-Id"] = Echo.socketId()
-    const res = await axios.post(`/chat/rooms/${props.room.id}/update-avatar`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
-
-    if (res.data && res.data.avatar) {
-      avatarList.value.unshift(res.data.avatar)
-    }
-
-    cancelAvatarSelection()
-  } catch (err) {
-    console.error('خطا در آپلود عکس:', err)
-  } finally {
-    isUploadingAvatar.value = false
   }
 }
 
@@ -645,29 +375,6 @@ const handleDeleteAvatar = async ({ image, index }) => {
   }
 }
 
-const saveBio = async () => {
-  if (isSavingBio.value) return
-  isSavingBio.value = true
-
-  try {
-    await axios.post(`/chat/rooms/${props.room.id}/update-description`, {
-      description: bioInput.value
-    })
-
-    currentBio.value = bioInput.value
-    isEditingBio.value = false
-  } catch (err) {
-    console.error('خطا در ثبت توضیحات:', err)
-  } finally {
-    isSavingBio.value = false
-  }
-}
-
-const cancelEditBio = () => {
-  bioInput.value = currentBio.value
-  isEditingBio.value = false
-}
-
 const getInitials = (name) => {
   if (!name) return '?'
   const parts = name.trim().split(' ')
@@ -680,22 +387,18 @@ const getInitials = (name) => {
 const formatLastSeen = (dateString) => {
   if (!dateString) return 'نامشخص'
   const formattedString = dateString.includes('T') ? dateString : dateString.replace(' ', 'T') + 'Z'
-  const date = new Date(formattedString)
+  let date = new Date(formattedString)
 
   if (isNaN(date.getTime())) {
-
     date = new Date(dateString)
   }
 
   const now = new Date()
-
-
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const startOfYesterday = new Date(startOfToday)
   startOfYesterday.setDate(startOfYesterday.getDate() - 1)
 
   const startOfTargetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-
 
   const timeFormatter = new Intl.DateTimeFormat('fa-IR', {
     hour: '2-digit',
@@ -711,7 +414,6 @@ const formatLastSeen = (dateString) => {
   if (startOfTargetDate.getTime() === startOfYesterday.getTime()) {
     return `دیروز ساعت ${timeString}`
   }
-
 
   const fullDateFormatter = new Intl.DateTimeFormat('fa-IR', {
     year: 'numeric',
@@ -1010,17 +712,6 @@ const send = async () => {
   }
 }
 
-const getCookie = (name) => {
-  const value = `; ${document.cookie}`
-  const parts = value.split(`; ${name}=`)
-  if (parts.length === 2) return decodeURIComponent(parts.pop().split(';').shift())
-  return null
-}
-
-
-
-
-
 onMounted(() => {
   initMessages()
   setupIntersectionObserver()
@@ -1107,9 +798,6 @@ onMounted(() => {
       }
     }
   })
-
-
-
 })
 
 onUnmounted(() => {

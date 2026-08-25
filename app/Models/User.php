@@ -63,4 +63,8 @@ class User extends Authenticatable
     {
         return $this->hasOne(UserAvatar::class)->latestOfMany();
     }
+    public function avatar()
+{
+    return $this->hasOne(UserAvatar::class)->latestOfMany();
+}
 }

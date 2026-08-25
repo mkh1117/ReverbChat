@@ -76,8 +76,8 @@
           :id="'msg-' + m.id"
           class="message-bubble flex gap-2 w-full relative"
           :data-msg-id="m.id"
+          :data-sequence-id="m.sequence_id"
           :data-user="m.user"
-          :data-is-read="m.is_read"
           :class="m.user === 'sender' ? 'flex-row-reverse' : 'flex-row'"
         >
           <!-- آواتار فرستنده -->
@@ -138,15 +138,18 @@
                   <span>{{ formatTime(m.created_at) }}</span>
 
                   <template v-if="m.user === 'sender'">
-                    <svg v-if="m.status === 'pending'" class="w-3.5 h-3.5 text-blue-200 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
 
-                    <svg v-else-if="m.status === 'failed'" class="w-3.5 h-3.5 text-red-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" title="عدم ارسال پیام">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                  <svg v-if="m.status === 'pending'" class="w-3.5 h-3.5 text-blue-200 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <svg v-else-if="m.status === 'failed'" class="w-3.5 h-3.5 text-red-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
 
-                    <svg v-else-if="m.is_read" class="w-3.5 h-3.5 text-sky-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+
+                  <template v-else>
+
+                    <svg v-if="m.views_count > 0" class="w-3.5 h-3.5 text-sky-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7M10 17l4 4L23 9" />
                     </svg>
 
@@ -154,6 +157,7 @@
                       <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   </template>
+                </template>
                 </div>
               </div>
             </div>
@@ -508,21 +512,25 @@ const initMessages = () => {
   let firstUnreadId = null
   initProfileData()
 
+  // گرفتن last_read کاربر از پروپس یا مقدار صفر
+  const currentUserLastRead = props.members?.find(m => m.id === props.user.id)?.pivot?.last_read_sequence_id || 0
+
   messages.value = props.chats.map(msg => {
     const isSender = msg.sender_id === props.user.id
 
-    if (!isSender && (msg.is_read == 0 || msg.is_read === false) && !firstUnreadId) {
+    if (!isSender && msg.sequence_id > currentUserLastRead && !firstUnreadId) {
       firstUnreadId = msg.id
     }
 
     return {
       id: msg.id,
+      sequence_id: msg.sequence_id,
       message: msg.message,
       user: isSender ? 'sender' : 'receiver',
       sender_name: msg.sender ? msg.sender.name : (msg.sender_name || 'کاربر'),
       sender_avatar: msg.sender ? msg.sender.avatar : msg.sender_avatar,
       reply_to: msg.parent || msg.reply_to || null,
-      is_read: msg.is_read,
+      views_count: msg.views_count || 0,
       created_at: msg.created_at || new Date().toISOString()
     }
   })
@@ -531,22 +539,20 @@ const initMessages = () => {
     scrollToFirstUnread(firstUnreadId)
   } else {
     scrollToBottom()
-    setTimeout(() => {
-      isSmooth.value = true
-    }, 100)
+    setTimeout(() => { isSmooth.value = true }, 100)
   }
 }
 
-const markAsRead = async (messageIds) => {
-  if (!messageIds || messageIds.length === 0) return
+const markAsRead = async (maxSequenceId) => {
+  if (!maxSequenceId) return
 
   try {
     axios.defaults.headers.common["X-Socket-Id"] = Echo.socketId()
     await axios.post(`/chat/${props.room.id}/read`, {
-      message_ids: messageIds
+      sequence_id: maxSequenceId
     })
   } catch (e) {
-    console.error('خطا در به‌روزرسانی وضعیت سین پیام‌ها:', e)
+    console.error('خطا در ثبت وضعیت خوانده‌شده:', e)
   }
 }
 
@@ -608,46 +614,37 @@ const handleConfirmDelete = async (deleteType) => {
 }
 
 let observer = null
-const pendingReadIds = new Set()
 let readTimeout = null
+let maxObservedSeq = 0
 
 const setupIntersectionObserver = () => {
   if (observer) observer.disconnect()
 
-  const options = {
-    root: chatBox.value,
-    threshold: 0.1
-  }
-
   observer = new IntersectionObserver((entries) => {
+    let newlyObservedMaxSeq = 0
+
     entries.forEach(entry => {
       if (entry.isIntersecting) {
-        const msgId = entry.target.getAttribute('data-msg-id')
+        const seqId = Number(entry.target.getAttribute('data-sequence-id'))
         const isReceiver = entry.target.getAttribute('data-user') === 'receiver'
-        const isUnread = entry.target.getAttribute('data-is-read') === '0' || entry.target.getAttribute('data-is-read') === 'false' || entry.target.getAttribute('data-is-read') === false
 
-        if (msgId && isReceiver && isUnread) {
-          pendingReadIds.add(Number(msgId))
-
-          clearTimeout(readTimeout)
-          readTimeout = setTimeout(() => {
-            if (pendingReadIds.size > 0) {
-              const idsToSend = Array.from(pendingReadIds)
-              markAsRead(idsToSend)
-
-              messages.value.forEach(m => {
-                if (idsToSend.includes(m.id)) {
-                  m.is_read = 1
-                }
-              })
-
-              pendingReadIds.clear()
-            }
-          }, 300)
+        if (seqId && isReceiver && seqId > maxObservedSeq) {
+          if (seqId > newlyObservedMaxSeq) {
+            newlyObservedMaxSeq = seqId
+          }
         }
       }
     })
-  }, options)
+
+    if (newlyObservedMaxSeq > maxObservedSeq) {
+      maxObservedSeq = newlyObservedMaxSeq
+
+      clearTimeout(readTimeout)
+      readTimeout = setTimeout(() => {
+        markAsRead(maxObservedSeq)
+      }, 300)
+    }
+  }, { root: chatBox.value, threshold: 0.1 })
 
   attachObserverToMessages()
 }
@@ -724,48 +721,39 @@ onMounted(() => {
     if (exists) return
 
     messages.value.push({
-      id: e.id,
-      message: e.message,
-      user: isSender ? 'sender' : 'receiver',
-      sender_name: e.sender_name || (e.sender ? e.sender.name : 'کاربر'),
-      sender_avatar: e.sender_avatar || (e.sender ? e.sender.avatar : null),
-      reply_to: e.reply_to,
-      is_read: e.is_read,
-      created_at: e.created_at || new Date().toISOString()
+    id: e.id,
+    sequence_id: e.sequence_id,
+    message: e.message,
+    user: isSender ? 'sender' : 'receiver',
+    sender_name: e.sender_name || (e.sender ? e.sender.name : 'کاربر'),
+    sender_avatar: e.sender_avatar || (e.sender ? e.sender.avatar : null),
+    reply_to: e.reply_to,
+    views_count: e.views_count || 0,
+    created_at: e.created_at || new Date().toISOString()
     })
 
     attachObserverToMessages()
 
     if (!showScrollDownBtn.value || isSender) {
-      scrollToBottom()
+        scrollToBottom()
     }
 
-    if (!isSender) {
+    if (!isSender && !showScrollDownBtn.value) {
       nextTick(() => {
-        if (!showScrollDownBtn.value) {
-          setTimeout(() => {
-            markAsRead([e.id])
-          }, 200)
-        }
+        setTimeout(() => {
+          markAsRead(e.sequence_id)
+        }, 200)
       })
     }
   })
 
   channel.listen('MessagesReadEvent', (e) => {
-    if (e.message_ids && Array.isArray(e.message_ids)) {
-      messages.value.forEach(msg => {
-        if (msg.user === 'sender' && e.message_ids.includes(msg.id)) {
-          msg.is_read = 1
-        }
-      })
-    } else {
-      messages.value.forEach(msg => {
-        if (msg.user === 'sender') {
-          msg.is_read = 1
-        }
-      })
+  messages.value.forEach(msg => {
+    if (msg.user === 'sender' && msg.sequence_id <= e.sequenceId) {
+      msg.views_count = (msg.views_count || 0) + 1
     }
   })
+})
 
   channel.listen('DeleteEvent', (e) => {
     const index = messages.value.findIndex(m => String(m.id) === String(e.messageId))

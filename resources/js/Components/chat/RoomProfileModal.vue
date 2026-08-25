@@ -144,7 +144,7 @@
         <!-- ➕ افزودن ممبر -->
         <div v-if="canAddMember" class="pt-1">
           <button
-            @click="showAddMemberModal = true"
+            @click="openAddMemberModal"
             class="w-full py-2.5 px-4 bg-blue-50 text-blue-600 hover:bg-blue-100 font-semibold text-xs rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95 border border-blue-200"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
@@ -186,28 +186,79 @@
       </div>
     </div>
 
-    <!-- ➕ زیرمودال افزودن کاربر -->
+    <!-- ➕ زیرمودال افزودن کاربر با لیست مخاطبین -->
     <div v-if="showAddMemberModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-[70] flex items-center justify-center p-4" @click.self="showAddMemberModal = false" dir="rtl">
-      <div class="bg-white rounded-3xl p-5 w-full max-w-sm space-y-4 shadow-2xl animate-fade-in">
-        <div class="flex items-center justify-between border-b pb-3">
-          <h4 class="text-sm font-bold text-gray-800">{{ room.type === 'channel' ? 'افزودن ممبر جدید به کانال' : 'افزودن ممبر جدید به گروه' }}</h4>
+      <div class="bg-white rounded-3xl p-5 w-full max-w-sm space-y-4 shadow-2xl animate-fade-in flex flex-col max-h-[80vh]">
+        <div class="flex items-center justify-between border-b pb-3 flex-shrink-0">
+          <h4 class="text-sm font-bold text-gray-800">{{ room.type === 'channel' ? 'افزودن عضو به کانال' : 'افزودن عضو به گروه' }}</h4>
           <button @click="showAddMemberModal = false" class="text-gray-400 hover:text-gray-600">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
-        <div class="space-y-3">
-          <div>
-            <label class="text-xs text-gray-500 mb-1 block">نام کاربری یا شناسه کاربر:</label>
-            <input type="text" v-model="newMemberUsername" placeholder="مثال: username@" class="w-full text-xs bg-gray-50 border border-gray-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-          <p v-if="addMemberError" class="text-xs text-red-500 font-medium">{{ addMemberError }}</p>
-          <p v-if="addMemberSuccess" class="text-xs text-green-600 font-medium">{{ addMemberSuccess }}</p>
+
+        <!-- باکس جستجو -->
+        <div class="flex-shrink-0">
+          <input
+            type="text"
+            v-model="searchQuery"
+            placeholder="جستجوی مخاطب..."
+            class="w-full text-xs bg-gray-50 border border-gray-200 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
         </div>
-        <div class="flex gap-2 pt-2">
-          <button @click="submitAddMember" :disabled="isAddingMember || !newMemberUsername.trim()" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs rounded-xl shadow-md disabled:opacity-50">
-            {{ isAddingMember ? 'در حال افزودن...' : 'افزودن' }}
-          </button>
-          <button @click="showAddMemberModal = false" class="py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium text-xs rounded-xl">انصراف</button>
+
+        <!-- پیام‌های خطا یا موفقیت -->
+        <p v-if="addMemberError" class="text-xs text-red-500 font-medium text-center flex-shrink-0">{{ addMemberError }}</p>
+        <p v-if="addMemberSuccess" class="text-xs text-green-600 font-medium text-center flex-shrink-0">{{ addMemberSuccess }}</p>
+
+        <!-- لیست مخاطبین / چت‌های اخیر -->
+        <div class="flex-1 overflow-y-auto space-y-1.5 pr-1">
+          <div v-if="isLoadingContacts" class="text-center py-6 text-xs text-gray-400">
+            در حال دریافت مخاطبین...
+          </div>
+
+          <div v-else-if="filteredContacts.length === 0" class="text-center py-6 text-xs text-gray-400">
+            مخاطبی یافت نشد.
+          </div>
+
+          <div
+            v-else
+            v-for="user in filteredContacts"
+            :key="user.id"
+            @click="!isUserInGroup(user.id) && !addingUserId && selectAndAddUser(user)"
+            class="flex items-center justify-between p-2 rounded-xl transition-all"
+            :class="[
+              isUserInGroup(user.id) ? 'bg-gray-50 opacity-60 cursor-not-allowed' : 'hover:bg-blue-50/60 cursor-pointer active:scale-98'
+            ]"
+          >
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div class="w-9 h-9 rounded-full overflow-hidden bg-slate-200 flex-shrink-0">
+                <img v-if="user.avatar" :src="user.avatar" class="w-full h-full object-cover" />
+                <div v-else class="w-full h-full bg-blue-500 text-white text-xs font-bold flex items-center justify-center">
+                  {{ getInitials(user.name) }}
+                </div>
+              </div>
+              <div class="flex flex-col min-w-0">
+                <span class="text-xs font-semibold text-gray-800 truncate">{{ user.name }}</span>
+                <span v-if="user.username" class="text-[10px] text-gray-400 truncate">@{{ user.username }}</span>
+              </div>
+            </div>
+
+            <div>
+              <span v-if="isUserInGroup(user.id)" class="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-md font-medium">
+                عضو گروه
+              </span>
+              <span v-else-if="addingUserId === user.id" class="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-md font-medium">
+                در حال افزودن...
+              </span>
+              <span v-else class="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-md font-medium">
+                افزودن
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-2 border-t flex-shrink-0">
+          <button @click="showAddMemberModal = false" class="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium text-xs rounded-xl">انصراف</button>
         </div>
       </div>
     </div>
@@ -243,8 +294,10 @@ const avatarPreviewUrl = ref(null)
 const isUploadingAvatar = ref(false)
 
 const showAddMemberModal = ref(false)
-const newMemberUsername = ref('')
-const isAddingMember = ref(false)
+const searchQuery = ref('')
+const contactsList = ref([])
+const isLoadingContacts = ref(false)
+const addingUserId = ref(null)
 const addMemberError = ref('')
 const addMemberSuccess = ref('')
 
@@ -271,7 +324,6 @@ const formatLastSeen = (dateString) => {
   }
 
   const now = new Date()
-
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const startOfYesterday = new Date(startOfToday)
   startOfYesterday.setDate(startOfYesterday.getDate() - 1)
@@ -371,24 +423,69 @@ const confirmUploadAvatar = async () => {
   }
 }
 
-const submitAddMember = async () => {
-  if (!newMemberUsername.value.trim() || isAddingMember.value) return
-  isAddingMember.value = true
+
+const isUserInGroup = (userId) => {
+  return props.members.some(m => Number(m.id) === Number(userId))
+}
+
+
+const filteredContacts = computed(() => {
+  if (!searchQuery.value.trim()) return contactsList.value
+  const q = searchQuery.value.toLowerCase()
+  return contactsList.value.filter(c =>
+    (c.name && c.name.toLowerCase().includes(q)) ||
+    (c.username && c.username.toLowerCase().includes(q))
+  )
+})
+
+
+const openAddMemberModal = async () => {
+  showAddMemberModal.value = true
+  addMemberError.value = ''
+  addMemberSuccess.value = ''
+  searchQuery.value = ''
+
+  if (contactsList.value.length === 0) {
+    isLoadingContacts.value = true
+    try {
+    window.axios.defaults.withCredentials = true;
+    window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+      const res = await axios.get('/chat/contacts-and-recent')
+      contactsList.value = res.data.users || res.data || []
+    } catch (err) {
+      console.error('خطا در دریافت لیست مخاطبین:', err)
+    } finally {
+      isLoadingContacts.value = false
+    }
+  }
+}
+
+const selectAndAddUser = async (user) => {
+  addingUserId.value = user.id
   addMemberError.value = ''
   addMemberSuccess.value = ''
 
   try {
-    const res = await axios.post(`/chat/rooms/${props.room.id}/add-member`, { username: newMemberUsername.value.trim() })
-    addMemberSuccess.value = 'کاربر با موفقیت اضافه شد.'
-    if (res.data.member) emit('add-member-success', res.data.member)
+    const res = await axios.post(`/chat/rooms/${props.room.id}/add-member`, {
+      user_id: user.id,
+      username: user.username
+    })
+
+    addMemberSuccess.value = `${user.name} با موفقیت اضافه شد.`
+    if (res.data.member) {
+      emit('add-member-success', res.data.member)
+    } else {
+      emit('add-member-success', user)
+    }
+
     setTimeout(() => {
-      showAddMemberModal.value = false
-      newMemberUsername.value = ''
-    }, 1200)
+      addMemberSuccess.value = ''
+    }, 2000)
+
   } catch (err) {
     addMemberError.value = err.response?.data?.message || 'خطا در افزودن کاربر.'
   } finally {
-    isAddingMember.value = false
+    addingUserId.value = null
   }
 }
 </script>

@@ -20,12 +20,15 @@ class MessagesReadEvent implements ShouldBroadcastNow
      * Create a new event instance.
      */
 
-    public $room_id;
-    public $message_Ids;
-    public function __construct($room_id,$message_Ids = [])
+    public string $roomId;
+    public int $userId;
+    public int $sequenceId;
+
+    public function __construct(string $room_id, int $userId, int $sequenceId)
     {
-        $this->room_id = $room_id;
-        $this->message_Ids = $message_Ids;
+        $this->roomId = $room_id;
+        $this->userId = $userId;
+        $this->sequenceId = $sequenceId;
     }
 
     /**
@@ -35,7 +38,7 @@ class MessagesReadEvent implements ShouldBroadcastNow
      */
     public function broadcastOn()
     {
-         return new privateChannel('message.'.$this->room_id);
+         return new privateChannel('message.'.$this->roomId);
     }
 
 }

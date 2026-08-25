@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+use App\Rules\UserMatchUsername;
+use Illuminate\Validation\Rule;
 
 class RoomController extends Controller
 {
@@ -70,7 +72,7 @@ public function show($room_id)
     }
 
     $chats = Chat::with(['sender:id,name','parent'])
-        ->select('id', 'sender_id', 'message', 'is_read','reply_to_id', 'created_at', 'updated_at')
+        ->select('id', 'sender_id', 'message','reply_to_id', 'created_at', 'updated_at')
         ->where('room_id', $room_id)
         ->where(function ($query) use ($userId) {
             $query->where(function ($q) use ($userId) {
@@ -201,5 +203,95 @@ private function getRoomMembers($roomId)
         ->where('room_users.room_id', $roomId)
         ->select('users.id', 'users.name', 'users.last_seen_at', 'room_users.role')
         ->get();
+}
+
+public function getContactsAndRecent(Request $request)
+{
+    try {
+        $userId = Auth::id();
+
+
+        $recentUserIds = DB::table('room_users as ru1')
+            ->join('rooms', 'rooms.id', '=', 'ru1.room_id')
+            ->join('room_users as ru2', 'ru2.room_id', '=', 'ru1.room_id')
+            ->where('ru1.user_id', $userId)
+            ->where('ru2.user_id', '!=', $userId)
+            ->where('rooms.type', 'private')
+            ->pluck('ru2.user_id');
+
+
+        $contacts = Contact::where('owner_id', $userId)
+            ->get()
+            ->keyBy('target_id');
+
+
+        $allUserIds = $recentUserIds->merge($contacts->keys())->unique();
+
+        $users = User::whereIn('id', $allUserIds)
+            ->with('avatar')
+            ->select('id', 'name', 'username')
+            ->get()
+            ->map(function ($user) use ($contacts) {
+                $contact = $contacts->get($user->id);
+                return [
+                    'id' => $user->id,
+                    'name' => ($contact && $contact->custom_name) ? $contact->custom_name : $user->name,
+                    'username' => $user->username,
+                    'avatar' => $user->avatar ? $user->avatar->path : null,
+                    'is_contact' => (bool) $contact,
+                ];
+            });
+
+        return response()->json([
+            'users' => $users->values()
+        ]);
+
+    } catch (\Throwable $e) {
+        Log::error('Error in getContactsAndRecent: ' . $e->getMessage());
+
+        return response()->json([
+            'message' => 'خطا در دریافت مخاطبین و چت‌های اخیر'
+        ], 500);
+    }
+}
+
+public function addMember(Request $request, string $roomId)
+{
+
+    $validated = $request->validate([
+        'user_id'  => ['required', 'integer', Rule::exists('users', 'id')],
+        'username' => ['required', 'string', new UserMatchUsername($request->user_id)],
+    ]);
+
+    $authUserId = Auth::id();
+
+
+    $room = Room::where('id', $roomId)
+        ->whereHas('users', fn($q) => $q->where('users.id', $authUserId))
+        ->first();
+
+    abort_if(!$room, 403, 'شما دسترسی به این اتاق را ندارید.');
+
+
+    if ($room->type === 'private') {
+        return response()->json([
+            'message' => 'امکان افزودن عضو به چت خصوصی وجود ندارد.'
+        ], 422);
+    }
+
+
+    if ($room->users()->where('users.id', $validated['user_id'])->exists()) {
+        return response()->json([
+            'message' => 'این کاربر قبلاً به گروه اضافه شده است.'
+        ], 422);
+    }
+
+    $room->users()->attach($validated['user_id'], [
+        'role' => 'member',
+    ]);
+
+    return response()->json([
+        'message' => 'کاربر با موفقیت به گروه اضافه شد.',
+    ], 201);
 }
 }

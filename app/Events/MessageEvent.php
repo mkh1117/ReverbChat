@@ -24,7 +24,8 @@ class MessageEvent implements ShouldBroadcastNow
     public $room_id;
     public $sender_id;
     public $reply_to;
-    public $is_read;
+    public $sequence_id;
+    public $views_count;
     public $sender_name;
     public $created_at;
 
@@ -35,7 +36,8 @@ class MessageEvent implements ShouldBroadcastNow
         $this->room_id     = $chat->room_id;
         $this->sender_id   = $chat->sender_id;
         $this->reply_to    = $chat->parent;
-        $this->is_read     = $chat->is_read ?? 0;
+        $this->sequence_id = $chat->sequence_id; 
+        $this->views_count = $chat->views_count ?? 0;
         $this->sender_name = $chat->sender->name;
         $this->created_at  = $chat->created_at->toIso8601String();
 

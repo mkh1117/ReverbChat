@@ -34,10 +34,10 @@ class RoomController extends Controller
         ->with(['users' => function ($query) use ($userId) {
             $query->where('users.id', '!=', $userId)->select('users.id', 'users.name');
         }])
-        ->withCount(['messages as unread_count' => function ($query) use ($userId) {
-            $query->where('is_read', false)
-                  ->where('sender_id', '!=', $userId);
+        ->with(['users' => function ($query) use ($userId) {
+            $query->where('users.id', $userId)->select('users.id')->withPivot('last_read_sequence_id');
         }])
+        ->withUnreadCount($userId)
         ->get()
         ->sortByDesc(function ($room) {
             return optional($room->messages->first())->created_at;
@@ -72,7 +72,7 @@ public function show($room_id)
     }
 
     $chats = Chat::with(['sender:id,name','parent'])
-        ->select('id', 'sender_id', 'message','reply_to_id', 'created_at', 'updated_at')
+        ->select('id', 'sender_id', 'message','sequence_id','views_count','reply_to_id', 'created_at', 'updated_at')
         ->where('room_id', $room_id)
         ->where(function ($query) use ($userId) {
             $query->where(function ($q) use ($userId) {
@@ -81,7 +81,7 @@ public function show($room_id)
                 $q->where('sender_id', '!=', $userId)->where('receiver_delete', false);
             });
         })
-        ->orderBy('created_at', 'asc')
+        ->orderBy('sequence_id', 'asc')
         ->get();
 
 
@@ -99,6 +99,7 @@ public function show($room_id)
         'chat_name'  => $chatName,
         'user_role'  => $roomUser->role,
         'other_user' => $otherUser,
+        'user_last_read' => $roomUser->last_read_sequence_id ?? 0,
         'members'    => $room->type !== 'private' ? $this->getRoomMembers($room_id) : [],
         'chats'      => $chats,
         'avatars'    => $avatars,
@@ -196,12 +197,11 @@ public function deleteAvatar(Request $request, $room)
 
 private function getRoomMembers($roomId)
 {
-    return User::whereHas('rooms', function ($q) use ($roomId) {
-            $q->where('rooms.id', $roomId);
-        })
-        ->join('room_users', 'users.id', '=', 'room_users.user_id')
-        ->where('room_users.room_id', $roomId)
-        ->select('users.id', 'users.name', 'users.last_seen_at', 'room_users.role')
+    $room = Room::findOrFail($roomId);
+
+    return $room->users()
+        ->select('users.id', 'users.name', 'users.last_seen_at')
+        ->withPivot('role', 'last_read_sequence_id')
         ->get();
 }
 

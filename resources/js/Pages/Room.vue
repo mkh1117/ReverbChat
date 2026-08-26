@@ -66,7 +66,7 @@
 
         <!-- 📅 جداساز تاریخ روز -->
         <div v-if="shouldShowDateHeader(index)" class="flex justify-center my-3 select-none">
-          <span class="bg-gray-200/80 backdrop-blur text-gray-600 text-[11px] font-medium px-3 py-1 rounded-full shadow-sm">
+          <span class="bg-gray-200/80 backdrop-blur text-gray-600 text-[11px] font-medium px-3 py-1 rounded-full shadow-sm" dir="rtl">
             {{ formatDateLabel(m.created_at) }}
           </span>
         </div>
@@ -294,6 +294,7 @@ const props = defineProps({
   chat_name:  String,
   user_role:  String,
   chats:      Array,
+  user_last_read: Number,
   other_user: Object,
   avatars:    Array,
   members:    Array,
@@ -449,18 +450,18 @@ const scrollToFirstUnread = async (unreadMessageId) => {
   isSmooth.value = false
   await nextTick()
 
-  requestAnimationFrame(() => {
+  setTimeout(() => {
     const element = document.getElementById(`msg-${unreadMessageId}`)
     if (element) {
-      element.scrollIntoView({ behavior: 'auto', block: 'center' })
+      element.scrollIntoView({ behavior: 'auto', block: 'start' })
     } else {
       scrollToBottom()
     }
 
     setTimeout(() => {
       isSmooth.value = true
-    }, 100)
-  })
+    }, 150)
+  }, 50)
 }
 
 const formatTime = (timestamp) => {
@@ -512,11 +513,23 @@ const initMessages = () => {
   let firstUnreadId = null
   initProfileData()
 
-  // گرفتن last_read کاربر از پروپس یا مقدار صفر
-  const currentUserLastRead = props.members?.find(m => m.id === props.user.id)?.pivot?.last_read_sequence_id || 0
+
+  let currentUserLastRead = 0
+
+  if (props.room.type === 'private') {
+
+    currentUserLastRead = props.room?.pivot?.last_read_sequence_id
+      || props.user_last_read
+      || 0
+  } else {
+
+    const me = props.members?.find(m => Number(m.id) === Number(props.user.id))
+    currentUserLastRead = me?.last_read_sequence_id || me?.pivot?.last_read_sequence_id || 0
+  }
 
   messages.value = props.chats.map(msg => {
     const isSender = msg.sender_id === props.user.id
+
 
     if (!isSender && msg.sequence_id > currentUserLastRead && !firstUnreadId) {
       firstUnreadId = msg.id
@@ -535,12 +548,15 @@ const initMessages = () => {
     }
   })
 
-  if (firstUnreadId) {
-    scrollToFirstUnread(firstUnreadId)
-  } else {
-    scrollToBottom()
-    setTimeout(() => { isSmooth.value = true }, 100)
-  }
+
+  nextTick(() => {
+    if (firstUnreadId) {
+      scrollToFirstUnread(firstUnreadId)
+    } else {
+      scrollToBottom()
+      setTimeout(() => { isSmooth.value = true }, 100)
+    }
+  })
 }
 
 const markAsRead = async (maxSequenceId) => {
@@ -675,10 +691,11 @@ const send = async () => {
 
   const tempMessage = {
     id: tempId,
+    sequence_id: null,
     message: text,
     user: 'sender',
     reply_to: replyPayload,
-    is_read: 0,
+    views_count: 0,
     status: 'pending',
     created_at: new Date().toISOString()
   }
@@ -693,12 +710,21 @@ const send = async () => {
       reply_to_id: replyPayload ? replyPayload.id : null
     })
 
-    const realId = res.data.message?.id || res.data.id
+
+    const serverMessage = res.data.message || res.data
 
     const index = messages.value.findIndex(m => m.id === tempId)
-    if (index !== -1 && realId) {
-      messages.value[index].id = realId
+    if (index !== -1 && serverMessage) {
+
+      messages.value[index].id = serverMessage.id
+      messages.value[index].sequence_id = serverMessage.sequence_id
+      messages.value[index].views_count = serverMessage.views_count || 0
       messages.value[index].status = 'sent'
+
+
+      nextTick(() => {
+        attachObserverToMessages()
+      })
     }
   } catch(e) {
     console.error('خطا در ارسال:', e)

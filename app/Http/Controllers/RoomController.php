@@ -294,4 +294,43 @@ public function addMember(Request $request, string $roomId)
         'message' => 'کاربر با موفقیت به گروه اضافه شد.',
     ], 201);
 }
+
+public function startPrivateChat($target_user_id)
+{
+    $currentUserId = Auth::id();
+
+    if ($currentUserId == $target_user_id) {
+        return back()->withErrors(['message' => 'نمی‌توانید با خودتان چت خصوصی ایجاد کنید.']);
+    }
+
+    $existingRoom = Room::where('type', 'private')
+        ->whereHas('users', function ($q) use ($currentUserId) {
+            $q->where('users.id', $currentUserId);
+        })
+        ->whereHas('users', function ($q) use ($target_user_id) {
+            $q->where('users.id', $target_user_id);
+        })
+        ->first();
+
+    if ($existingRoom) {
+        return redirect()->route('chat.show', $existingRoom->id);
+    }
+
+
+    $room = DB::transaction(function () use ($currentUserId, $target_user_id) {
+        $newRoom = Room::create([
+            'type' => 'private',
+            'name' => null,
+        ]);
+
+        $newRoom->users()->attach([
+            $currentUserId   => ['role' => 'admin', 'last_read_sequence_id' => 0],
+            $target_user_id  => ['role' => 'admin', 'last_read_sequence_id' => 0],
+        ]);
+
+        return $newRoom;
+    });
+
+    return redirect()->route('chat.show', $room->id);
+}
 }

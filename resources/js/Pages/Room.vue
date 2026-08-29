@@ -106,6 +106,30 @@
                 m.status === 'pending' ? 'opacity-70 cursor-wait' : 'cursor-pointer active:opacity-90'
               ]"
             >
+            <!-- 🟢 بخش نمایش فوروارد شده از... -->
+      <div
+  v-if="m.forwarded_from && m.forwarded_from.sender_name"
+  class="text-[11px] font-medium pt-2 px-3 flex items-center gap-1 select-none"
+  :class="m.user === 'sender' ? 'text-blue-100' : 'text-gray-500'"
+>
+  <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+  </svg>
+  <span>فوروارد شده از</span>
+
+  <a
+    v-if="m.forwarded_from.sender_username"
+    :href="route('user.profile', { username: m.forwarded_from.sender_username })"
+    @click.stop
+    class="font-bold underline hover:opacity-80 transition-opacity"
+    :class="m.user === 'sender' ? 'text-white' : 'text-blue-600'"
+  >
+    {{ m.forwarded_from.sender_name }}
+  </a>
+  <span v-else class="font-bold" :class="m.user === 'sender' ? 'text-white' : 'text-gray-800'">
+    {{ m.forwarded_from.sender_name }}
+  </span>
+</div>
               <div
                 v-if="m.reply_to"
                 @click.stop="scrollToMessage(m.reply_to.id)"
@@ -171,6 +195,12 @@
                 <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
                 پاسخ دادن
               </button>
+              <button @click="openForwardModal(m)" class="w-full text-right px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+              <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+              فوروارد
+            </button>
               <button v-if="m.user === 'sender'" @click="openDeleteModal(m, index)" class="w-full text-right px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2">
                 <svg class="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
@@ -275,7 +305,13 @@
       @upload-avatar="newPath => avatarList.unshift(newPath)"
       @remove-avatar="handleDeleteAvatar"
     />
-
+    <ForwardMessageModal
+      :isOpen="showForwardModal"
+      :message="selectedMessageToForward"
+      :chats="all_chats"
+      @close="showForwardModal = false"
+      @forward="handleConfirmForward"
+    />
   </div>
 </template>
 
@@ -286,6 +322,7 @@ import '../echo'
 import DeleteMessageModal from './../Components/chat/DeleteMessageModal.vue'
 import AvatarGalleryModal from './../Components/chat/AvatarGalleryModal.vue'
 import RoomProfileModal from './../Components/chat/RoomProfileModal.vue'
+import ForwardMessageModal from './../Components/chat/ForwardMessageModal.vue'
 import { globalOnlineUsers } from '../app.js'
 
 const props = defineProps({
@@ -296,6 +333,7 @@ const props = defineProps({
   chats:      Array,
   user_last_read: Number,
   other_user: Object,
+  all_chats:  Array,
   avatars:    Array,
   members:    Array,
 })
@@ -464,6 +502,30 @@ const scrollToFirstUnread = async (unreadMessageId) => {
   }, 50)
 }
 
+const showForwardModal = ref(false)
+const selectedMessageToForward = ref(null)
+
+const openForwardModal = (message) => {
+  activeMenuIndex.value = null
+  selectedMessageToForward.value = message
+  showForwardModal.value = true
+}
+
+const handleConfirmForward = async ({ targetRoom, message }) => {
+  try {
+    axios.defaults.headers.common["X-Socket-Id"] = Echo.socketId()
+    await axios.post(`/chat/${targetRoom.id}/messages`, {
+      message: message.message,
+      forwarded_from_id: message.id
+    })
+
+  } catch (err) {
+    console.error('خطا در فوروارد پیام:', err)
+  } finally {
+    selectedMessageToForward.value = null
+  }
+}
+
 const formatTime = (timestamp) => {
   if (!timestamp) return ''
   const date = new Date(timestamp)
@@ -513,16 +575,11 @@ const initMessages = () => {
   let firstUnreadId = null
   initProfileData()
 
-
   let currentUserLastRead = 0
 
   if (props.room.type === 'private') {
-
-    currentUserLastRead = props.room?.pivot?.last_read_sequence_id
-      || props.user_last_read
-      || 0
+    currentUserLastRead = props.room?.pivot?.last_read_sequence_id || props.user_last_read || 0
   } else {
-
     const me = props.members?.find(m => Number(m.id) === Number(props.user.id))
     currentUserLastRead = me?.last_read_sequence_id || me?.pivot?.last_read_sequence_id || 0
   }
@@ -530,9 +587,19 @@ const initMessages = () => {
   messages.value = props.chats.map(msg => {
     const isSender = msg.sender_id === props.user.id
 
-
     if (!isSender && msg.sequence_id > currentUserLastRead && !firstUnreadId) {
       firstUnreadId = msg.id
+    }
+
+    // 🟢 استخراج هوشمند اطلاعات فرستنده اصلی (Forwarded From)
+    let fFrom = null
+    const rawForward = msg.forwarded_from || msg.forwardedFrom
+
+    if (rawForward) {
+      fFrom = {
+        sender_name: rawForward.sender?.name || rawForward.sender_name || 'کاربر',
+        sender_username: rawForward.sender?.username || rawForward.sender_username || null
+      }
     }
 
     return {
@@ -542,12 +609,12 @@ const initMessages = () => {
       user: isSender ? 'sender' : 'receiver',
       sender_name: msg.sender ? msg.sender.name : (msg.sender_name || 'کاربر'),
       sender_avatar: msg.sender ? msg.sender.avatar : msg.sender_avatar,
+      forwarded_from: fFrom, 
       reply_to: msg.parent || msg.reply_to || null,
       views_count: msg.views_count || 0,
       created_at: msg.created_at || new Date().toISOString()
     }
   })
-
 
   nextTick(() => {
     if (firstUnreadId) {
@@ -754,6 +821,7 @@ onMounted(() => {
     sender_name: e.sender_name || (e.sender ? e.sender.name : 'کاربر'),
     sender_avatar: e.sender_avatar || (e.sender ? e.sender.avatar : null),
     reply_to: e.reply_to,
+    forwarded_from: e.forwarded_from,
     views_count: e.views_count || 0,
     created_at: e.created_at || new Date().toISOString()
     })

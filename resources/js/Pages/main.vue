@@ -108,27 +108,38 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted , watch} from 'vue'
 import { usePage } from '@inertiajs/vue3'
 import RoomItem from '../Components/RoomItem.vue'
 import NewGroup from '../Components/NewGroup.vue'
 import { globalOnlineUsers } from '../app.js'
 
-// اصلاح Props اصلی: دریافت همزمان rooms و contacts از لاراول
+
 const props = defineProps({
   rooms: { type: Array, default: () => [] },
   contacts: { type: Array, default: () => [] }
 })
 
 const localRooms = ref([...props.rooms])
+watch(() => props.rooms, (newRooms) => {
+  localRooms.value = [...newRooms]
+}, { deep: true })
+
 const currentUserId = usePage().props.auth.user.id
 
+const getInitials = (name) => {
+  if (!name) return '?'
+  const parts = name.trim().split(' ')
+  return parts.length >= 2 ? (parts[0][0] + parts[1][0]).toUpperCase() : name.substring(0, 2).toUpperCase()
+}
+
 const isRoomPartnerOnline = (room) => {
-  if (room.type !== 'private') return false
-  const partner = room.users && room.users[0]
+  if (room.type !== 'private' || !room.users) return false
+
+  const partner = room.users.find(u => Number(u.id) !== Number(currentUserId))
   if (!partner) return false
 
-  return globalOnlineUsers.value.some(id => String(id) === String(partner.id))
+  return globalOnlineUsers.value.some(id => Number(id) === Number(partner.id))
 }
 
 const sortedRooms = computed(() => {

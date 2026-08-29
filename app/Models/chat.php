@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 class chat extends Model
 {
     protected $table = 'chats';
-    protected $fillable = ['room_id', 'sender_id', 'message','sequence_id', 'is_read','reply_to_id','sender_delete','receiver_delete'];
+    protected $fillable = ['room_id', 'sender_id', 'message','sequence_id', 'is_read','reply_to_id','forwarded_from_id','sender_delete','receiver_delete'];
     protected $casts = [
         'is_read' => 'boolean',
     ];
@@ -39,6 +39,11 @@ protected function getNextSequenceId(string $roomId)
     }
 
     return Cache::increment($cacheKey);
+}
+
+public function forwardedFrom()
+{
+    return $this->belongsTo(chat::class, 'forwarded_from_id')->with('sender');
 }
 
 }

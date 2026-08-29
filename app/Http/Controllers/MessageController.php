@@ -140,6 +140,7 @@ class MessageController extends Controller
     $validated = $request->validate([
         'message' => 'required|string|max:1000',
         'reply_to_id' => 'nullable|exists:chats,id',
+        'forwarded_from_id' => 'nullable|exists:chats,id',
     ]);
 
     $sequenceId = chat::getNextSequenceId($room_id);
@@ -149,6 +150,7 @@ class MessageController extends Controller
         'sender_id' => $userId,
         'sequence_id' => $sequenceId,
         'message'   => $validated['message'],
+        'forwarded_from_id' => $request->forwarded_from_id,
         'reply_to_id' => $validated['reply_to_id'] ?? null,
     ]);
 

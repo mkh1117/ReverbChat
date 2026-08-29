@@ -21,9 +21,14 @@ use Illuminate\Validation\Rule;
 
 class RoomController extends Controller
 {
-    public function main(){
-        $userId=Auth::id();
-        $rooms = Room::query()
+    public function main()
+{
+    $userId = Auth::id();
+
+    $savedContacts = Contact::where('owner_id', $userId)
+        ->pluck('custom_name', 'target_id');
+
+    $rooms = Room::query()
         ->select('rooms.id', 'rooms.name', 'rooms.type')
         ->whereHas('users', function ($query) use ($userId) {
             $query->where('users.id', $userId);
@@ -31,23 +36,47 @@ class RoomController extends Controller
         ->with(['messages' => function ($query) {
             $query->latest()->limit(1);
         }])
-        ->with(['users' => function ($query) use ($userId) {
-            $query->where('users.id', '!=', $userId)->select('users.id', 'users.name');
-        }])
-        ->with(['users' => function ($query) use ($userId) {
-            $query->where('users.id', $userId)->select('users.id')->withPivot('last_read_sequence_id');
+        ->with(['users' => function ($query) {
+            $query->select('users.id', 'users.name')->withPivot('last_read_sequence_id');
         }])
         ->withUnreadCount($userId)
+        ->with(['avatars' => function ($query) {
+            $query->latest();
+        }])
         ->get()
+        ->map(function ($room) use ($userId, $savedContacts) {
+            $avatarPath = null;
+
+            if ($room->type === 'private') {
+                $partner = $room->users->firstWhere('id', '!=', $userId);
+
+                if ($partner) {
+                    $partnerName = $savedContacts->get($partner->id) ?? $partner->name;
+                    $partner->name = $partnerName;
+                    $lastAvatar = $partner->avatars?->first();
+                    $avatarPath = $lastAvatar?->path;
+                }
+            } else {
+                $lastAvatar = $room->avatars->first();
+                $avatarPath = $lastAvatar?->path;
+            }
+
+            $room->avatar_url = $avatarPath ? Storage::url($avatarPath) : null;
+
+            return $room;
+        })
         ->sortByDesc(function ($room) {
             return optional($room->messages->first())->created_at;
         })
         ->values();
 
-        $contacts=Contact::where('owner_id',$userId)->get();
+    $contacts = Contact::where('owner_id', $userId)->get();
 
-        return Inertia::render('main',['rooms'=>$rooms,'contacts'=>$contacts]);
-    }
+    return Inertia::render('main', [
+        'rooms' => $rooms,
+        'contacts' => $contacts
+    ]);
+}
 
 
 public function show($room_id)
@@ -71,8 +100,8 @@ public function show($room_id)
           ->first();
     }
 
-    $chats = Chat::with(['sender:id,name','parent'])
-        ->select('id', 'sender_id', 'message','sequence_id','views_count','reply_to_id', 'created_at', 'updated_at')
+    $chats = Chat::with(['sender:id,name','parent','forwardedFrom.sender:id,name,username'])
+        ->select('id', 'sender_id', 'message','sequence_id','views_count','reply_to_id', 'created_at','forwarded_from_id', 'updated_at')
         ->where('room_id', $room_id)
         ->where(function ($query) use ($userId) {
             $query->where(function ($q) use ($userId) {
@@ -93,6 +122,27 @@ public function show($room_id)
 
     $chatName = $this->resolveChatName($room, $userId);
 
+    $userRooms = Room::whereHas('users', function ($q) use ($userId) {
+        $q->where('users.id', $userId);
+    })
+    ->with([
+        'users' => function ($q) {
+            $q->select('users.id', 'users.name')
+              ->with('avatar');
+        }
+    ])
+    ->get()
+    ->map(function ($r) use ($userId) {
+        $currentUserPivot = $r->users->firstWhere('id', $userId);
+        $r->user_role = $currentUserPivot?->pivot?->role ?? 'member';
+
+        if ($r->type === 'private') {
+            $partner = $r->users->firstWhere('id', '!=', $userId);
+            $r->name = $partner?->name ?? 'کاربر';
+        }
+        return $r;
+    });
+
     return Inertia::render('Room', [
         'user'       => Auth::user(),
         'room'       => $room,
@@ -102,6 +152,7 @@ public function show($room_id)
         'user_last_read' => $roomUser->last_read_sequence_id ?? 0,
         'members'    => $room->type !== 'private' ? $this->getRoomMembers($room_id) : [],
         'chats'      => $chats,
+        'all_chats'      => $userRooms,
         'avatars'    => $avatars,
     ]);
 }

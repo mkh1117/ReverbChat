@@ -28,6 +28,7 @@ class MessageEvent implements ShouldBroadcastNow
     public $views_count;
     public $sender_name;
     public $created_at;
+    public $forwarded_from;
 
     public function __construct($chat)
     {
@@ -36,9 +37,10 @@ class MessageEvent implements ShouldBroadcastNow
         $this->room_id     = $chat->room_id;
         $this->sender_id   = $chat->sender_id;
         $this->reply_to    = $chat->parent;
-        $this->sequence_id = $chat->sequence_id; 
+        $this->sequence_id = $chat->sequence_id;
         $this->views_count = $chat->views_count ?? 0;
         $this->sender_name = $chat->sender->name;
+        $this->forwarded_from = $chat->forwarded_from_id;
         $this->created_at  = $chat->created_at->toIso8601String();
 
     }

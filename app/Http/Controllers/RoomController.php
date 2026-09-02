@@ -101,7 +101,7 @@ public function show($room_id)
     }
 
     $chats = Chat::with(['sender:id,name','parent','forwardedFrom.sender:id,name,username'])
-        ->select('id', 'sender_id', 'message','sequence_id','views_count','reply_to_id', 'created_at','forwarded_from_id', 'updated_at')
+        ->select('id','room_id', 'sender_id', 'message','sequence_id','views_count','reply_to_id', 'created_at','forwarded_from_id', 'updated_at')
         ->where('room_id', $room_id)
         ->where(function ($query) use ($userId) {
             $query->where(function ($q) use ($userId) {

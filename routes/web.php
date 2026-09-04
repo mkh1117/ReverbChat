@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Route;
 
 
 Route::middleware('auth')->group(function () {
+
     Route::get('/main',[RoomController::class,'main']);
 
     Route::get('/chat/contacts-and-recent', [RoomController::class, 'getContactsAndRecent']);
@@ -30,9 +31,14 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/chat/rooms/{room_id}/update-avatar',[UpdateInfoController::class,'updateAvatar'])->name('update_avatar')->middleware(['chat.admin']);
 
+    Route::get('/chat/attachments/{attachment_id}', [MessageController::class, 'streamAttachment'])
+    ->middleware(['auth'])
+    ->name('attachments.stream');
+
     Route::post('/chat/{room_id}/messages', [MessageController::class,'newMessage']);
 
-    Route::post('chat/{room_id}/read', [MessageController::class,'messageRead']);
+    Route::post('/chat/{room_id}/read', [MessageController::class,'messageRead']);
+
 
     Route::get('/dashboard', [RoomController::class,'main'])->middleware(['verified'])->name('dashboard');
 

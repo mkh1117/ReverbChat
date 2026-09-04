@@ -18,8 +18,16 @@ class chat extends Model
 protected function message(): Attribute
     {
         return Attribute::make(
-            get: fn (string $value) => ChatEncryptionService::decrypt($value,(int) $this->room_id),
-            set: fn (string $value) => ChatEncryptionService::encrypt($value,(int) $this->attributes['room_id'] ?? request('room_id'))
+            get: fn (?string $value) => $value ? ChatEncryptionService::decrypt($value,(int) $this->room_id) : null,
+            set: function (?string $value) {
+            if ($value === null || $value === '') {
+                return null;
+            }
+
+            $roomId = $this->attributes['room_id'] ?? request('room_id');
+
+            return ChatEncryptionService::encrypt($value, (int) $roomId);
+        }
         );
     }
 public function sender()
@@ -56,7 +64,7 @@ public function forwardedFrom()
 
 public function attachments()
 {
-    return $this->hasMany(ChatAttachment::class);
+    return $this->hasMany(ChatAttachment::class, 'chat_id');
 }
 
 }

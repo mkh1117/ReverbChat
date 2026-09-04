@@ -31,7 +31,7 @@
         ></span>
       </div>
 
-      <div class="flex flex-col min-w-0 flex-1 pl-2">
+      <div class="flex flex-col min-w-0 flex-1 pl-2" dir="rtl">
         <div class="flex items-center justify-between mb-0.5">
           <span class="text-sm font-semibold text-gray-900 truncate">{{ displayName }}</span>
 
@@ -40,8 +40,9 @@
           </span>
         </div>
 
-        <!-- پیش‌نمایش آخرین پیام (همراه با لینک پروفایل فرستنده اصلی) -->
+        <!-- پیش‌نمایش آخرین پیام -->
         <p class="text-xs text-gray-500 truncate flex items-center gap-1">
+          <!-- نمادهای فوروارد -->
           <template v-if="forwardedUser">
             <span>فوروارد از</span>
             <Link
@@ -58,12 +59,26 @@
             <span>:</span>
           </template>
 
+          <!-- آیکون‌های تشخیص نوع فایل -->
+          <template v-if="latestMessageFileType">
+            <!-- آیکون عکس -->
+            <svg v-if="latestMessageFileType.startsWith('image/')" class="w-3.5 h-3.5 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+
+            <!-- آیکون ویدیو -->
+            <svg v-else-if="latestMessageFileType.startsWith('video/')" class="w-3.5 h-3.5 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+
+            <!-- آیکون فایل/سند -->
+            <svg v-else class="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+          </template>
+
+          <!-- متن آخرین پیام -->
           <span class="truncate">{{ latestMessageText }}</span>
         </p>
       </div>
 
     </div>
 
+    <!-- نشانگر تعداد پیام‌های خوانده‌نشده -->
     <div v-if="room.unread_count > 0" class="flex items-center justify-center mr-2 flex-shrink-0">
       <span class="min-w-[20px] h-5 px-1.5 text-xs font-bold text-white bg-blue-600 rounded-full flex items-center justify-center shadow-sm">
         {{ room.unread_count > 99 ? '+99' : room.unread_count }}
@@ -140,7 +155,6 @@ const avatarBgColor = computed(() => {
   return bgColors[targetId % bgColors.length]
 })
 
-// استخراج اطلاعات کاربرِ پیام اصلی برای لینک پروفایل
 const forwardedUser = computed(() => {
   if (!props.room.messages || props.room.messages.length === 0) return null
   const lastMsg = props.room.messages[0]
@@ -162,11 +176,31 @@ const forwardedUser = computed(() => {
   return null
 })
 
+// 🟢 استخراج نوع فایل برای نمایش آیکون مناسب
+const latestMessageFileType = computed(() => {
+  if (!props.room.messages || props.room.messages.length === 0) return null
+  return props.room.messages[0].file_type || null
+})
+
+// 🟢 اصلاح متن آخرین پیام براساس فایل یا متن ساده
 const latestMessageText = computed(() => {
-  if (props.room.messages && props.room.messages.length > 0) {
-    return props.room.messages[0].message
+  if (!props.room.messages || props.room.messages.length === 0) {
+    return 'هنوز پیامی ارسال نشده است'
   }
-  return 'هنوز پیامی ارسال نشده است'
+
+  const lastMsg = props.room.messages[0]
+
+  // اگر پیام حاوی فایل باشد
+  if (lastMsg.file_path) {
+    const caption = lastMsg.message ? ` - ${lastMsg.message}` : ''
+    const type = lastMsg.file_type || ''
+
+    if (type.startsWith('image/')) return `عکس${caption}`
+    if (type.startsWith('video/')) return `ویدیو${caption}`
+    return `${lastMsg.file_name || 'فایل'}${caption}`
+  }
+
+  return lastMsg.message || ''
 })
 
 const latestMessageTime = computed(() => {

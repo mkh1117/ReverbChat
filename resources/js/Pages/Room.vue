@@ -150,7 +150,32 @@
                   {{ m.sender_name }}
                 </div>
 
-                <div class="whitespace-pre-wrap break-words">
+                <!-- نمایش فایل در صورت وجود -->
+                <div v-if="m.file_path || m.attachment_id" class="mb-2">
+                  <!-- اگر عکس باشد -->
+                  <a v-if="m.file_type?.startsWith('image/')" :href="m.attachment_id ? route('attachments.stream', m.attachment_id) : `/chat/files/${m.id}`" target="_blank">
+                    <img :src="m.attachment_id ? route('attachments.stream', m.attachment_id) : `/chat/files/${m.id}`" class="rounded-xl max-h-60 w-full object-cover shadow-sm hover:opacity-95 transition-opacity" />
+                  </a>
+
+                  <!-- اگر ویدیو باشد -->
+                  <video v-else-if="m.file_type?.startsWith('video/')" controls class="rounded-xl max-h-60 w-full" :src="m.attachment_id ? route('attachments.stream', m.attachment_id) : `/chat/files/${m.id}`">
+                    <!-- <source :src="m.attachment_id ? route('attachments.stream', m.attachment_id) : `/chat/files/${m.id}`" :type="m.file_type"> -->
+                  </video>
+
+                  <!-- فایل عمومی (PDF، زیپ، داکیومنت) -->
+                  <a v-else :href="m.attachment_id ? route('attachments.stream', m.attachment_id) : `/chat/files/${m.id}`" target="_blank" class="flex items-center gap-3 p-2.5 rounded-xl bg-black/5 hover:bg-black/10 transition-colors">
+                    <div class="w-10 h-10 rounded-lg bg-blue-500 text-white flex items-center justify-center flex-shrink-0">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    </div>
+                    <div class="flex flex-col min-w-0 flex-1 text-right">
+                      <span class="text-xs font-bold truncate">{{ m.file_name || 'دانلود فایل' }}</span>
+                      <span class="text-[10px] text-gray-500">برای دانلود کلیک کنید</span>
+                    </div>
+                  </a>
+                </div>
+
+                <!-- متن پیام/کپشن -->
+                <div v-if="m.message" class="whitespace-pre-wrap break-words">
                   {{ m.message }}
                 </div>
 
@@ -240,7 +265,15 @@
           </button>
         </div>
 
+        <input
+          type="file"
+          ref="fileInput"
+          class="hidden"
+          @change="handleFileSelect"
+        />
+
         <div class="flex items-center gap-2">
+
           <button
             @click="send"
             :disabled="!newMessage.trim()"
@@ -248,6 +281,16 @@
           >
             <svg class="w-5 h-5 transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" stroke-width="2" />
+            </svg>
+          </button>
+          <button
+            @click="triggerFileInput"
+            type="button"
+            class="text-gray-400 hover:text-gray-600 p-2.5 rounded-2xl hover:bg-gray-100 active:scale-95 transition-all"
+            title="ارسال فایل"
+          >
+            <svg class="w-5 h-5 rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
             </svg>
           </button>
           <div class="flex-1 relative flex items-center" dir="rtl">
@@ -312,6 +355,13 @@
       @close="showForwardModal = false"
       @forward="handleConfirmForward"
     />
+    <FileUploadModal
+  :isOpen="showFileUploadModal"
+  :file="selectedFile"
+  :roomId="room.id"
+  @close="showFileUploadModal = false"
+  @uploaded="handleFileUploaded"
+/>
   </div>
 </template>
 
@@ -324,6 +374,7 @@ import AvatarGalleryModal from './../Components/chat/AvatarGalleryModal.vue'
 import RoomProfileModal from './../Components/chat/RoomProfileModal.vue'
 import ForwardMessageModal from './../Components/chat/ForwardMessageModal.vue'
 import { globalOnlineUsers } from '../app.js'
+import FileUploadModal from './../Components/chat/FileUploadModal.vue'
 
 const props = defineProps({
   user:       Object,
@@ -345,6 +396,41 @@ const messages = ref([])
 const chatBox = ref(null)
 const showScrollDownBtn = ref(false)
 const isSmooth = ref(false)
+
+const fileInput = ref(null)
+const selectedFile = ref(null)
+const showFileUploadModal = ref(false)
+
+const triggerFileInput = () => {
+  fileInput.value?.click()
+}
+
+const handleFileSelect = (e) => {
+  const file = e.target.files[0]
+  if (file) {
+    selectedFile.value = file
+    showFileUploadModal.value = true
+  }
+  e.target.value = ''
+}
+
+const handleFileUploaded = (serverMessage) => {
+
+  const isSender = serverMessage.sender_id === props.user.id
+  messages.value.push({
+    id: serverMessage.id,
+    sequence_id: serverMessage.sequence_id,
+    message: serverMessage.message,
+    file_path: serverMessage.file_path,
+    file_type: serverMessage.file_type,
+    file_name: serverMessage.file_name,
+    user: isSender ? 'sender' : 'receiver',
+    sender_name: serverMessage.sender ? serverMessage.sender.name : 'کاربر',
+    views_count: 0,
+    created_at: serverMessage.created_at || new Date().toISOString()
+  })
+  scrollToBottom()
+}
 
 const activeMenuIndex = ref(null)
 const replyingTo = ref(null)
@@ -591,7 +677,7 @@ const initMessages = () => {
       firstUnreadId = msg.id
     }
 
-    // 🟢 استخراج هوشمند اطلاعات فرستنده اصلی (Forwarded From)
+
     let fFrom = null
     const rawForward = msg.forwarded_from || msg.forwardedFrom
 
@@ -602,6 +688,8 @@ const initMessages = () => {
       }
     }
 
+    const attachment = msg.attachments && msg.attachments.length > 0 ? msg.attachments[0] : null
+
     return {
       id: msg.id,
       sequence_id: msg.sequence_id,
@@ -609,7 +697,11 @@ const initMessages = () => {
       user: isSender ? 'sender' : 'receiver',
       sender_name: msg.sender ? msg.sender.name : (msg.sender_name || 'کاربر'),
       sender_avatar: msg.sender ? msg.sender.avatar : msg.sender_avatar,
-      forwarded_from: fFrom, 
+      forwarded_from: fFrom,
+      file_path: msg.file_path || attachment?.file_path || null,
+      file_type: msg.file_type || attachment?.mime_type || null,
+      file_name: msg.file_name || attachment?.original_name || null,
+      attachment_id: attachment?.id || null,
       reply_to: msg.parent || msg.reply_to || null,
       views_count: msg.views_count || 0,
       created_at: msg.created_at || new Date().toISOString()

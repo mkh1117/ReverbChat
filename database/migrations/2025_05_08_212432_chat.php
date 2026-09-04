@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->uuid('room_id');
             $table->unsignedBigInteger('sender_id')->nullable();
-            $table->text('message');
+            $table->text('message')->nullable();
             $table->boolean('is_read')->default(false);
             $table->timestamps();
             $table->foreign('room_id')->references('id')->on('rooms');

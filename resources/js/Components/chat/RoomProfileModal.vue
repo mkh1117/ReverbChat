@@ -81,7 +81,15 @@
         </div>
 
         <h3 class="text-lg font-bold text-white text-center">{{ chatName }}</h3>
-        <p v-if="room.type === 'private' && otherUser?.username" class="text-xs text-blue-100 mt-0.5">@{{ otherUser.username }}</p>
+
+        <!-- لینک به پروفایل کاربر مستقیم در پی وی -->
+        <a
+          v-if="room.type === 'private' && otherUser?.username"
+          :href="`/@${otherUser.username}`"
+          class="text-xs text-blue-100 hover:underline mt-0.5"
+        >
+          @{{ otherUser.username }}
+        </a>
       </div>
 
       <!-- بدنه اصلی -->
@@ -154,16 +162,24 @@
           </button>
         </div>
 
-        <!-- 👥 لیست اعضای گروه -->
-        <div v-if="room.type === 'group'" class="space-y-2">
+        <!-- 👥 لیست اعضای گروه یا کانال -->
+        <div v-if="room.type !== 'private'" class="space-y-2">
           <div class="flex items-center justify-between border-b border-gray-100 pb-2">
-            <span class="text-xs font-semibold text-gray-400">اعضای گروه</span>
+            <span class="text-xs font-semibold text-gray-400">اعضا</span>
             <span class="text-xs bg-blue-50 text-blue-600 font-bold px-2 py-0.5 rounded-full">{{ members.length }} نفر</span>
           </div>
 
-          <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
-            <div v-for="member in members" :key="member.id" class="flex items-center justify-between py-1.5 px-2 hover:bg-gray-50 rounded-xl">
-              <div class="flex items-center gap-2.5 min-w-0">
+          <div class="space-y-2 max-h-56 overflow-y-auto pr-1">
+            <div
+              v-for="member in members"
+              :key="member.id"
+              class="flex items-center justify-between py-2 px-2 hover:bg-gray-50 rounded-xl transition-colors border border-transparent hover:border-gray-100"
+            >
+              <!-- اطلاعات کاربر همراه با لینک پروفایل -->
+              <a
+                :href="member.username ? `/@${member.username}` : '#'"
+                class="flex items-center gap-2.5 min-w-0 flex-1 group"
+              >
                 <div class="w-8 h-8 rounded-full overflow-hidden bg-slate-200 flex-shrink-0">
                   <img v-if="member.avatar" :src="member.avatar" class="w-full h-full object-cover" />
                   <div v-else class="w-full h-full bg-blue-500 text-white text-xs font-bold flex items-center justify-center">
@@ -171,14 +187,44 @@
                   </div>
                 </div>
                 <div class="flex flex-col min-w-0">
-                  <span class="text-xs font-medium text-gray-800 truncate">{{ member.name }}</span>
+                  <span class="text-xs font-medium text-gray-800 truncate group-hover:text-blue-600 transition-colors">
+                    {{ member.name }}
+                  </span>
                   <span class="text-[10px]" :class="isOnline(member.id) ? 'text-green-500 font-medium' : 'text-gray-400'">
                     {{ getUserStatus(member) }}
                   </span>
                 </div>
+              </a>
+
+              <!-- بخش مدیریت نقش و اخراج -->
+              <div class="flex items-center gap-1.5 flex-shrink-0">
+                <!-- نمایش برچسب نقش -->
+                <span v-if="member.role === 'owner'" class="text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200 px-2 py-0.5 rounded-md">مالک</span>
+                <span v-else-if="member.role === 'admin'" class="text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-md">مدیر</span>
+
+                <!-- دکمه‌های عملیاتی برای مدیران/مالک -->
+                <template v-if="canManageMember(member)">
+                  <!-- دکمه ارتقا یا عزل ادمین -->
+                  <button
+                    @click="toggleAdminRole(member)"
+                    class="px-2 py-0.5 text-[10px] font-bold rounded-md border transition-all active:scale-95"
+                    :class="member.role === 'admin' ? 'border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100' : 'border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100'"
+                  >
+                    {{ member.role === 'admin' ? 'عزل' : 'ارتقا' }}
+                  </button>
+
+                  <!-- دکمه اخراج -->
+                  <button
+                    @click="kickMember(member)"
+                    class="p-1 text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                    title="اخراج از گروه"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </template>
               </div>
-              <span v-if="member.role === 'owner'" class="text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200 px-2 py-0.5 rounded-md">مالک</span>
-              <span v-else-if="member.role === 'admin'" class="text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-md">مدیر</span>
             </div>
           </div>
         </div>
@@ -305,6 +351,49 @@ const canManageGroup = computed(() => props.room.type !== 'private' && ['owner',
 const canAddMember = computed(() => props.room.type === 'group' || (props.room.type === 'channel' && ['owner', 'admin'].includes(props.userRole)))
 const channelLink = computed(() => props.room.slug ? `${window.location.origin}/join/${props.room.slug}` : `${window.location.origin}/chat/${props.room.id}`)
 
+// بررسی سطح دسترسی مدیریت روی یک عضو مشخص
+const canManageMember = (member) => {
+  
+  if (member.role === 'owner') return false
+
+  if (props.userRole === 'owner') return true
+
+  if (props.userRole === 'admin' && (member.role === 'member' || !member.role)) return true
+
+  return false
+}
+
+// تغییر یا عزل نقش ادمینی
+const toggleAdminRole = async (member) => {
+  const newRole = member.role === 'admin' ? 'member' : 'admin'
+  try {
+    axios.defaults.headers.common["X-Socket-Id"] = window.Echo?.socketId()
+    await axios.post(`/chat/rooms/${props.room.id}/change-role`, {
+      user_id: member.id,
+      role: newRole
+    })
+    emit('role-changed', { userId: member.id, newRole })
+  } catch (err) {
+    console.error('خطا در تغییر نقش کاربر:', err)
+  }
+}
+
+// اخراج عضو از گروه یا کانال
+const kickMember = async (member) => {
+  if (!confirm(`آیا از اخراج ${member.name} اطمینان دارید؟`)) return
+
+  try {
+    axios.defaults.headers.common["X-Socket-Id"] = window.Echo?.socketId()
+    await axios.post(`/chat/rooms/${props.room.id}/kick`, {
+      user_id: member.id
+    })
+
+    emit('member-kicked', member.id)
+  } catch (err) {
+    console.error('خطا در اخراج کاربر:', err)
+  }
+}
+
 const getInitials = (name) => {
   if (!name) return '?'
   const parts = name.trim().split(' ')
@@ -410,7 +499,7 @@ const confirmUploadAvatar = async () => {
   formData.append('avatar', selectedAvatarFile.value)
 
   try {
-    axios.defaults.headers.common["X-Socket-Id"] = Echo.socketId()
+    axios.defaults.headers.common["X-Socket-Id"] = window.Echo?.socketId()
     const res = await axios.post(`/chat/rooms/${props.room.id}/update-avatar`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
@@ -423,11 +512,9 @@ const confirmUploadAvatar = async () => {
   }
 }
 
-
 const isUserInGroup = (userId) => {
   return props.members.some(m => Number(m.id) === Number(userId))
 }
-
 
 const filteredContacts = computed(() => {
   if (!searchQuery.value.trim()) return contactsList.value
@@ -438,7 +525,6 @@ const filteredContacts = computed(() => {
   )
 })
 
-
 const openAddMemberModal = async () => {
   showAddMemberModal.value = true
   addMemberError.value = ''
@@ -448,8 +534,8 @@ const openAddMemberModal = async () => {
   if (contactsList.value.length === 0) {
     isLoadingContacts.value = true
     try {
-    window.axios.defaults.withCredentials = true;
-    window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+      window.axios.defaults.withCredentials = true;
+      window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
       const res = await axios.get('/chat/contacts-and-recent')
       contactsList.value = res.data.users || res.data || []
     } catch (err) {

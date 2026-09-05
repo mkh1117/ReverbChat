@@ -35,6 +35,14 @@ Route::middleware('auth')->group(function () {
     ->middleware(['auth'])
     ->name('attachments.stream');
 
+    Route::prefix('chat/rooms/{room_id}')->group(function () {
+
+        Route::post('/change-role', [RoomController::class, 'changeRole'])->middleware('chat.admin');
+
+        Route::post('/kick', [RoomController::class, 'kickUser'])->middleware('chat.admin');
+
+    });
+
     Route::post('/chat/{room_id}/messages', [MessageController::class,'newMessage']);
 
     Route::post('/chat/{room_id}/read', [MessageController::class,'messageRead']);

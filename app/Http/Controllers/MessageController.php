@@ -31,16 +31,16 @@ class MessageController extends Controller
 
     $deleteType = $validated['delete_type'];
 
-        $userId = Auth::id();
-        $roomUser = room_user::where('room_id', $room_id)
-            ->where('user_id', $userId)
-            ->first();
+    $userId = Auth::id();
+    $roomUser = room_user::where('room_id', $room_id)
+        ->where('user_id', $userId)
+        ->first();
+    abort_if(!$roomUser, 403);
 
-        abort_if(!$roomUser, 403);
 
-        $chat = chat::where('id', $message_id)->where('room_id', $room_id)->firstOrFail();
+    $chat = chat::where('id', $message_id)->where('room_id', $room_id)->firstOrFail();
 
-        if ($deleteType == 'me') {
+    if ($deleteType == 'me') {
         //اگر فرستنده خواست برای خودش حذف کنه
         if ($chat->sender_id == $userId) {
             $chat->update(['sender_delete' => true]);
@@ -51,7 +51,7 @@ class MessageController extends Controller
     } else {
 
         // حذف برای همه
-        if ($chat->sender_id == $userId) {
+        if ($chat->sender_id == $userId || $roomUser->role == "admin" || $roomUser->role == "owner") {
             $chat->update(['sender_delete' => true, 'receiver_delete' => true]);
 
 
@@ -60,7 +60,7 @@ class MessageController extends Controller
     }
 
 
-        return response()->json([
+    return response()->json([
         'success' => true,
     ], 201);
 

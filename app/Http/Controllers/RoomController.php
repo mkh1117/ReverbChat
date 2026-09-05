@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Events\DeleteAvatarEvent;
+use App\Events\UserKickedRoomEvent;
+use App\Events\UserRoleChangedEvent;
 use App\Models\chat;
 use App\Models\Room;
 use App\Models\room_user;
@@ -152,7 +154,7 @@ public function show($room_id)
         'user_last_read' => $roomUser->last_read_sequence_id ?? 0,
         'members'    => $room->type !== 'private' ? $this->getRoomMembers($room_id) : [],
         'chats'      => $chats,
-        'all_chats'      => $userRooms,
+        'all_chats'   => $userRooms,
         'avatars'    => $avatars,
     ]);
 }
@@ -251,7 +253,7 @@ private function getRoomMembers($roomId)
     $room = Room::findOrFail($roomId);
 
     return $room->users()
-        ->select('users.id', 'users.name', 'users.last_seen_at')
+        ->select('users.id', 'users.name', 'users.username','users.last_seen_at','room_users.role')
         ->withPivot('role', 'last_read_sequence_id')
         ->get();
 }
@@ -383,5 +385,113 @@ public function startPrivateChat($target_user_id)
     });
 
     return redirect()->route('chat.show', $room->id);
+}
+
+
+public function changeRole(Request $request, $room_id)
+{
+    $validated = $request->validate([
+        'user_id' => 'required|exists:users,id',
+        'role'    => 'required|in:admin,member'
+    ]);
+
+    $authUserId = auth::id();
+    $targetUserId = $validated['user_id'];
+    $newRole = $validated['role'];
+
+    $currentAdmin = room_user::where('user_id', $authUserId)
+        ->where('room_id', $room_id)
+        ->first();
+
+
+    $targetMember = room_user::where('user_id', $targetUserId)
+        ->where('room_id', $room_id)
+        ->first();
+
+    if (!$targetMember) {
+        return response()->json([
+            'message' => 'کاربر مورد نظر در این گروه یافت نشد.'
+        ], 404);
+    }
+
+    if ($targetUserId == $authUserId) {
+        return response()->json([
+            'message' => 'شما نمی‌توانید نقش خودتان را تغییر دهید.'
+        ], 422);
+    }
+
+    if ($targetMember->role === 'owner') {
+        return response()->json([
+            'message' => 'امکان تغییر نقش مالک گروه وجود ندارد.'
+        ], 422);
+    }
+
+    if ($currentAdmin->role === 'admin') {
+        return response()->json([
+            'message' => 'تنها مالک گروه می‌تواند نقش مدیران را مدیریت کند.'
+        ], 403);
+    }
+
+    $targetMember->update([
+        'role' => $newRole
+    ]);
+
+    broadcast(new UserRoleChangedEvent($room_id, $targetUserId, $newRole))->toOthers();
+
+    return response()->json([
+        'message' => 'نقش کاربر با موفقیت به‌روزرسانی شد.',
+        'role'    => $newRole
+    ], 200);
+}
+
+public function kickUser(Request $request, $room_id)
+{
+    $validated = $request->validate([
+        'user_id' => 'required|exists:users,id'
+    ]);
+
+    $authUserId = auth::id();
+    $targetUserId = $validated['user_id'];
+
+    $targetMember = room_user::where('user_id', $targetUserId)
+        ->where('room_id', $room_id)
+        ->first();
+
+    if (!$targetMember) {
+        return response()->json([
+            'message' => 'کاربر مورد نظر در این گروه یافت نشد.'
+        ], 404);
+    }
+
+    $currentAdmin = room_user::where('user_id', $authUserId)
+        ->where('room_id', $room_id)
+        ->first();
+
+    if ($targetUserId == $authUserId) {
+        return response()->json([
+            'message' => 'شما نمی‌توانید خودتان را اخراج کنید.'
+        ], 422);
+    }
+
+    if ($targetMember->role === 'owner') {
+        return response()->json([
+            'message' => 'امکان اخراج مالک گروه وجود ندارد.'
+        ], 422);
+    }
+
+    if ($currentAdmin->role === 'admin' && $targetMember->role === 'admin') {
+        return response()->json([
+            'message' => 'شما نمیتوانید مدیر دیگری را اخراج کنید.'
+        ], 423);
+    }
+
+    $targetMember->delete();
+
+
+    broadcast(new UserKickedRoomEvent($room_id, $targetUserId))->toOthers();
+
+    return response()->json([
+        'message' => 'کاربر با موفقیت اخراج شد.'
+    ], 200);
 }
 }

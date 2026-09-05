@@ -312,21 +312,28 @@
 
     <!-- 👤 مودال پروفایل و مدیریت روم -->
     <RoomProfileModal
-      :isOpen="showProfileModal"
-      :room="room"
-      :chatName="chat_name"
-      :userRole="user_role"
-      :otherUser="other_user"
-      :currentAvatar="currentRoomAvatar"
-      :bio="currentBio"
-      :members="roomMembers"
-      :onlineUsers="globalOnlineUsers"
-      @close="showProfileModal = false"
-      @update-bio="newBio => currentBio = newBio"
-      @add-member-success="newMember => roomMembers.push(newMember)"
-      @upload-avatar="newPath => avatarList.unshift(newPath)"
-      @remove-avatar="handleDeleteAvatar"
-    />
+  :isOpen="showProfileModal"
+  :room="room"
+  :chatName="chat_name"
+  :userRole="user_role"
+  :otherUser="other_user"
+  :currentAvatar="currentRoomAvatar"
+  :bio="currentBio"
+  :members="roomMembers"
+  :onlineUsers="globalOnlineUsers"
+  @close="showProfileModal = false"
+  @update-bio="newBio => currentBio = newBio"
+  @add-member-success="newMember => roomMembers.push(newMember)"
+  @upload-avatar="newPath => avatarList.unshift(newPath)"
+  @remove-avatar="handleDeleteAvatar"
+  @role-changed="({ userId, newRole }) => {
+    const member = roomMembers.find(m => m.id === userId)
+    if (member) member.role = newRole
+  }"
+  @member-kicked="kickedUserId => {
+    roomMembers = roomMembers.filter(m => m.id !== kickedUserId)
+  }"
+/>
     <ForwardMessageModal
       :isOpen="showForwardModal"
       :message="selectedMessageToForward"
@@ -959,6 +966,26 @@ onMounted(() => {
       }
     }
   })
+
+  channel.listen('UserRoleChangedEvent', (e) => {
+  const member = roomMembers.value.find(m => Number(m.id) === Number(e.targetUserId))
+  if (member) {
+    member.role = e.newRole
+  }
+  if (Number(e.targetUserId) === Number(props.user.id)) {
+    user_role.value = e.newRole
+  }
+})
+
+
+channel.listen('UserKickedRoomEvent', (e) => {
+  roomMembers.value = roomMembers.value.filter(m => Number(m.id) !== Number(e.targetUserId))
+
+  if (Number(e.targetUserId) === Number(props.user.id)) {
+    alert('شما از این گروه اخراج شدید.')
+    window.location.href = '/dashboard'
+  }
+})
 })
 
 onUnmounted(() => {

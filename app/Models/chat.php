@@ -66,5 +66,9 @@ public function attachments()
 {
     return $this->hasMany(ChatAttachment::class, 'chat_id');
 }
+public function attachment()
+{
+    return $this->hasOne(ChatAttachment::class, 'chat_id');
+}
 
 }

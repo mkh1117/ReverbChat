@@ -118,13 +118,12 @@ class ChatEncryptionService
 
     $key = static::getRoomKey($roomId);
 
-    // ✅ فایل decrypt شده را cache کنید
     $cacheKey = 'decrypted_' . md5($filePath . $roomId);
     $tempDir = storage_path('app/temp_decrypted');
     @mkdir($tempDir, 0755, true);
     $tempPath = $tempDir . '/' . $cacheKey;
 
-    // اگر قبلاً decrypt شده، استفاده کنید
+
     if (!file_exists($tempPath)) {
         $srcStream = fopen($filePath, 'rb');
         $destStream = fopen($tempPath, 'wb');
@@ -172,14 +171,17 @@ class ChatEncryptionService
         fclose($destStream);
     }
 
+    $disposition = request()->boolean('download')
+    ? 'attachment'
+    : 'inline';
 
-    return response()->file(
-        $tempPath,
-        [
-            'Content-Type'        => $mimeType,
-            'Content-Disposition' => 'inline; filename="' . $originalName . '"',
-            'Cache-Control'       => 'private, max-age=31536000',
-        ]
-    );
+return response()->file(
+    $tempPath,
+    [
+        'Content-Type' => $mimeType,
+        'Content-Disposition' => $disposition . '; filename="' . $originalName . '"',
+        'Cache-Control' => 'private, max-age=3600',
+    ]
+);
 }
 }

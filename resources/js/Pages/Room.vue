@@ -151,28 +151,7 @@
                 </div>
 
                 <!-- نمایش فایل در صورت وجود -->
-                <div v-if="m.file_path || m.attachment_id" class="mb-2">
-                  <!-- اگر عکس باشد -->
-                  <a v-if="m.file_type?.startsWith('image/')" :href="m.attachment_id ? route('attachments.stream', m.attachment_id) : `/chat/files/${m.id}`" target="_blank">
-                    <img :src="m.attachment_id ? route('attachments.stream', m.attachment_id) : `/chat/files/${m.id}`" class="rounded-xl max-h-60 w-full object-cover shadow-sm hover:opacity-95 transition-opacity" />
-                  </a>
-
-                  <!-- اگر ویدیو باشد -->
-                  <video v-else-if="m.file_type?.startsWith('video/')" controls class="rounded-xl max-h-60 w-full" :src="m.attachment_id ? route('attachments.stream', m.attachment_id) : `/chat/files/${m.id}`">
-                    <!-- <source :src="m.attachment_id ? route('attachments.stream', m.attachment_id) : `/chat/files/${m.id}`" :type="m.file_type"> -->
-                  </video>
-
-                  <!-- فایل عمومی (PDF، زیپ، داکیومنت) -->
-                  <a v-else :href="m.attachment_id ? route('attachments.stream', m.attachment_id) : `/chat/files/${m.id}`" target="_blank" class="flex items-center gap-3 p-2.5 rounded-xl bg-black/5 hover:bg-black/10 transition-colors">
-                    <div class="w-10 h-10 rounded-lg bg-blue-500 text-white flex items-center justify-center flex-shrink-0">
-                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                    </div>
-                    <div class="flex flex-col min-w-0 flex-1 text-right">
-                      <span class="text-xs font-bold truncate">{{ m.file_name || 'دانلود فایل' }}</span>
-                      <span class="text-[10px] text-gray-500">برای دانلود کلیک کنید</span>
-                    </div>
-                  </a>
-                </div>
+                <MediaViewer v-if="m.file_path || m.attachment_id" :message="m" />
 
                 <!-- متن پیام/کپشن -->
                 <div v-if="m.message" class="whitespace-pre-wrap break-words">
@@ -226,7 +205,7 @@
               </svg>
               فوروارد
             </button>
-              <button v-if="m.user === 'sender'" @click="openDeleteModal(m, index)" class="w-full text-right px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2">
+              <button v-if="m.user === 'sender' || user_role === 'admin' || user_role === 'owner'" @click="openDeleteModal(m, index)" class="w-full text-right px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2">
                 <svg class="w-3.5 h-3.5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                 </svg>
@@ -375,6 +354,7 @@ import RoomProfileModal from './../Components/chat/RoomProfileModal.vue'
 import ForwardMessageModal from './../Components/chat/ForwardMessageModal.vue'
 import { globalOnlineUsers } from '../app.js'
 import FileUploadModal from './../Components/chat/FileUploadModal.vue'
+import MediaViewer from './../Components/chat/MediaViewer.vue'
 
 const props = defineProps({
   user:       Object,
@@ -417,17 +397,20 @@ const handleFileSelect = (e) => {
 const handleFileUploaded = (serverMessage) => {
 
   const isSender = serverMessage.sender_id === props.user.id
+const attachment = serverMessage.attachment
   messages.value.push({
     id: serverMessage.id,
     sequence_id: serverMessage.sequence_id,
     message: serverMessage.message,
-    file_path: serverMessage.file_path,
-    file_type: serverMessage.file_type,
-    file_name: serverMessage.file_name,
+    attachment_id: attachment?.id || null,
+    file_path: attachment.file_path,
+    file_type: attachment.file_type,
+    file_name: attachment.file_name,
     user: isSender ? 'sender' : 'receiver',
     sender_name: serverMessage.sender ? serverMessage.sender.name : 'کاربر',
     views_count: 0,
-    created_at: serverMessage.created_at || new Date().toISOString()
+    created_at: serverMessage.created_at || new Date().toISOString(),
+
   })
   scrollToBottom()
 }
@@ -913,6 +896,10 @@ onMounted(() => {
     sender_name: e.sender_name || (e.sender ? e.sender.name : 'کاربر'),
     sender_avatar: e.sender_avatar || (e.sender ? e.sender.avatar : null),
     reply_to: e.reply_to,
+    attachment_id: e.attachment_id || null,
+    file_path: e.file_path || null,
+    file_type: e.mime_type || e.file_type || null,
+    file_name: e.original_name || e.file_name || null,
     forwarded_from: e.forwarded_from,
     views_count: e.views_count || 0,
     created_at: e.created_at || new Date().toISOString()

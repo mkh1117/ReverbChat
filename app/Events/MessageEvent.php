@@ -29,6 +29,11 @@ class MessageEvent implements ShouldBroadcastNow
     public $sender_name;
     public $created_at;
     public $forwarded_from;
+    public $attachment_id;
+    public $original_name;
+    public $file_type;
+    public $mime_type;
+    public $file_size;
 
     public function __construct($chat)
     {
@@ -42,6 +47,12 @@ class MessageEvent implements ShouldBroadcastNow
         $this->sender_name = $chat->sender->name;
         $this->forwarded_from = $chat->forwarded_from_id;
         $this->created_at  = $chat->created_at->toIso8601String();
+
+        $this->attachment_id  = $chat->attachment?->id;
+        $this->original_name  = $chat->attachment?->original_name;
+        $this->file_type      = $chat->attachment?->file_type;
+        $this->mime_type      = $chat->attachment?->mime_type;
+        $this->file_size      = $chat->attachment?->file_size;
 
     }
 

@@ -235,7 +235,9 @@ class MessageController extends Controller
             $chat->message = ChatEncryptionService::decrypt($chat->message, $room_id);
         }
 
-        $chat->load(['sender:id,name', 'parent']);
+
+
+        $chat->load(['sender:id,name', 'parent' , 'attachment']);
 
         broadcast(new MessageEvent($chat))->toOthers();
 
@@ -252,12 +254,6 @@ class MessageController extends Controller
 
     $attachment = ChatAttachment::findOrFail($attachment_id);
 
-
-    Log::error('Attachment', [
-        'name' => $attachment->original_name,
-        'mime' => $attachment->mime_type,
-        'ext'  => pathinfo($attachment->original_name, PATHINFO_EXTENSION),
-    ]);
 
     $isMember = DB::table('room_users')
         ->where('room_id', $attachment->room_id)

@@ -44,7 +44,7 @@
         <!-- پروگرس‌بار آپلود -->
         <div v-if="isUploading" class="px-5 py-4 bg-white border-t border-gray-100">
           <div class="flex items-center justify-between text-xs text-gray-600 mb-1.5 font-medium">
-            <span>در حال آپلود و رمزنگاری...</span>
+            <span>در حال آپلود فایل...</span>
             <span>{{ uploadProgress }}%</span>
           </div>
           <div class="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
@@ -78,13 +78,14 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import axios from 'axios'
 
 const props = defineProps({
   isOpen: Boolean,
   file: File,
-  roomId: [Number, String]
+  roomId: [Number, String],
+  replyToId: [Number, String] // 🔴 پشتیبانی از ریپلای برای فایل
 })
 
 const emit = defineEmits(['close', 'uploaded'])
@@ -98,24 +99,36 @@ const previewUrl = ref(null)
 const isImage = computed(() => props.file?.type?.startsWith('image/'))
 const isVideo = computed(() => props.file?.type?.startsWith('video/'))
 
+// پاک‌سازی حافظه ObjectURL
+const clearPreviewUrl = () => {
+  if (previewUrl.value) {
+    URL.revokeObjectURL(previewUrl.value)
+    previewUrl.value = null
+  }
+}
+
 watch(() => props.file, (newFile) => {
+  clearPreviewUrl()
+
   if (newFile) {
     caption.value = ''
     uploadProgress.value = 0
     isSuccess.value = false
+
     if (newFile.type?.startsWith('image/') || newFile.type?.startsWith('video/')) {
       previewUrl.value = URL.createObjectURL(newFile)
-    } else {
-      previewUrl.value = null
     }
-  } else {
-    previewUrl.value = null
   }
 }, { immediate: true })
+
+onUnmounted(() => {
+  clearPreviewUrl()
+})
 
 const close = () => {
   if (isUploading.value) return
   isSuccess.value = false
+  clearPreviewUrl()
   emit('close')
 }
 
@@ -141,6 +154,10 @@ const startUpload = async () => {
     formData.append('message', caption.value.trim())
   }
 
+  if (props.replyToId) {
+    formData.append('reply_to_id', props.replyToId)
+  }
+
   try {
     if (window.Echo?.socketId()) {
       axios.defaults.headers.common["X-Socket-Id"] = window.Echo.socketId()
@@ -157,14 +174,16 @@ const startUpload = async () => {
       }
     })
 
-    // نمایش وضعیت موفقیت‌آمیز
-    isSuccess.value = true
-    emit('uploaded', res.data.message || res.data)
+    const payload = res.data.message || res.data
 
-    // بستن خودکار مدال پس از ۱.۲ ثانیه
+    isSuccess.value = true
+
+    // 🔴 ارسال داده استانداردشده به کامپوننت چت
+    emit('uploaded', payload)
+
     setTimeout(() => {
       close()
-    }, 1200)
+    }, 800)
 
   } catch (err) {
     if (err.response && err.response.status === 422) {

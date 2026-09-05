@@ -9,10 +9,10 @@ use Inertia\Inertia;
 
 class UserProfileController extends Controller
 {
-    public function show($username){
-
+    public function show($username)
+    {
         $profileUser = User::where('username', $username)
-            ->select('id', 'name','bio', 'username','last_seen_at')
+            ->select('id', 'name', 'bio', 'username', 'last_seen_at')
             ->with(['avatars' => function ($q) {
                 $q->latest();
             }])
@@ -22,12 +22,16 @@ class UserProfileController extends Controller
             return Storage::url($avatar->path);
         })->toArray();
 
-
-        $currentAvatar = $avatars[0] ?? null;
-
         return Inertia::render('UserProfile', [
-            'profileUser'   => $profileUser,
-            'avatars'       => $avatars,
+            'profileUser' => [
+                'id' => $profileUser->id,
+                'name' => $profileUser->name,
+                'username' => $profileUser->username,
+                'bio' => $profileUser->bio,
+                'last_seen_at' => $profileUser->last_seen_at,
+                'avatar' => $avatars[0] ?? null,
+            ],
+            'avatars' => $avatars,
         ]);
     }
 }

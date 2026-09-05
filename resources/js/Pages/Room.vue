@@ -83,8 +83,8 @@
           <!-- آواتار فرستنده -->
           <div v-if="m.user === 'receiver'" class="w-8 h-8 rounded-full flex-shrink-0 self-end mb-1">
             <img
-              v-if="m.sender_avatar || (room.type === 'private' && other_user?.avatar)"
-              :src="m.sender_avatar || other_user?.avatar"
+              v-if="getAvatarUrl(m)"
+              :src="getAvatarUrl(m)"
               class="w-full h-full rounded-full object-cover border border-gray-200"
             />
             <div
@@ -434,6 +434,30 @@ const currentRoomAvatar = computed(() => {
   }
   return avatarList.value.length > 0 ? avatarList.value[0] : (props.room.avatar || null)
 })
+
+const getAvatarUrl = (message) => {
+  const avatar = message.sender_avatar || (props.room?.type === 'private' ? props.other_user?.avatar : null)
+
+  if (!avatar) return null
+
+  let path = ''
+  if (typeof avatar === 'string') {
+    path = avatar
+  } else if (typeof avatar === 'object') {
+    path = avatar.url || avatar.path || ''
+  }
+
+  if (!path) return null
+
+  
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('/storage/')) {
+    return path
+  }
+
+
+  return `/storage/${path.replace(/^\/+/, '')}`
+}
+
 const currentBio = ref('')
 const roomMembers = ref([])
 

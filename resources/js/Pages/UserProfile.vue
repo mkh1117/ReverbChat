@@ -13,9 +13,12 @@
         <div class="w-9"></div>
       </div>
 
-      <!-- بخش آواتار، نشانگر آنلاین و نام -->
+    
       <div class="flex flex-col items-center pt-6 pb-4 px-4 text-center">
-        <div class="w-24 h-24 rounded-full overflow-hidden shadow-md border-2 border-white mb-3 relative bg-slate-200">
+        <div
+          @click="openGallery"
+          class="w-24 h-24 rounded-full overflow-hidden shadow-md border-2 border-white mb-3 relative bg-slate-200 cursor-pointer active:scale-95 transition-transform"
+        >
           <img
             v-if="profileUser.avatar"
             :src="profileUser.avatar"
@@ -26,7 +29,7 @@
             {{ getInitials(profileUser.name) }}
           </div>
 
-          <!-- نشانگر سبزرنگ آنلاین بودن روی آواتار -->
+
           <span
             v-if="isOnline"
             class="absolute bottom-1 right-1 w-5 h-5 bg-emerald-500 border-2 border-white rounded-full shadow-sm"
@@ -60,7 +63,6 @@
 
         <div class="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex items-center justify-between text-xs text-gray-500">
           <span>وضعیت</span>
-          <!-- نمایش آنلاین یا تاریخ آخرین بازدید -->
           <span v-if="isOnline" class="text-emerald-600 font-bold flex items-center gap-1.5">
             <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
             آنلاین
@@ -70,13 +72,23 @@
       </div>
 
     </div>
+
+    <AvatarGalleryModal
+      :show="showGalleryModal"
+      :avatars="avatars"
+      :current-avatar="profileUser.avatar"
+      :title="profileUser.name"
+      :can-delete="false"
+      @close="showGalleryModal = false"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import { router } from '@inertiajs/vue3'
-import { globalOnlineUsers } from '@/app.js' // 👈 ایمپورت آرایه کاربران آنلاین
+import { globalOnlineUsers } from '@/app.js'
+import AvatarGalleryModal from '@/Components/chat/AvatarGalleryModal.vue'
 
 const props = defineProps({
   profileUser: Object,
@@ -84,6 +96,13 @@ const props = defineProps({
 })
 
 const isProcessing = ref(false)
+const showGalleryModal = ref(false)
+
+const openGallery = () => {
+  if (props.avatars && props.avatars.length > 0) {
+    showGalleryModal.value = true
+  }
+}
 
 // بررسی آنلاین بودن کاربر بر اساس لیست حضور در کانال Presence
 const isOnline = computed(() => {

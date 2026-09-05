@@ -52,9 +52,13 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
 
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::post('/profile', [ProfileController::class, 'update'])->name('profile.update');
 
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    Route::post('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
+
+    Route::post('/profile/avatar', [ProfileController::class, 'uploadAvatar'])->name('profile.avatar.upload');
+    
+    Route::delete('/profile/avatar/{avatar}', [ProfileController::class, 'deleteAvatar'])->name('profile.avatar.delete');
 
     Route::post('/chat/private/start/{target_user_id}', [RoomController::class, 'startPrivateChat'])->name('chat.private.start');
 

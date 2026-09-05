@@ -1,63 +1,88 @@
 <?php
-
 namespace App\Http\Controllers;
 
-use App\Http\Requests\ProfileUpdateRequest;
-use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Illuminate\Http\RedirectResponse;
+use App\Models\UserAvatar;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
-use Inertia\Response;
 
 class ProfileController extends Controller
 {
-    /**
-     * Display the user's profile form.
-     */
-    public function edit(Request $request): Response
+    public function edit(Request $request)
     {
+        $user = $request->user()->load(['avatars', 'currentAvatar']);
+
         return Inertia::render('Profile/Edit', [
-            'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
-            'status' => session('status'),
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'username' => $user->username,
+                'bio' => $user->bio,
+                'current_avatar' => $user->currentAvatar ? Storage::url($user->currentAvatar->path) : null,
+                'avatars' => $user->avatars->map(fn($a) => [
+                    'id' => $a->id,
+                    'url' => Storage::url($a->path),
+                ]),
+            ]
         ]);
     }
 
-    /**
-     * Update the user's profile information.
-     */
-    public function update(ProfileUpdateRequest $request): RedirectResponse
+    public function update(Request $request)
     {
-        $request->user()->fill($request->validated());
-
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
-        }
-
-        $request->user()->save();
-
-        return Redirect::route('profile.edit');
-    }
-
-    /**
-     * Delete the user's account.
-     */
-    public function destroy(Request $request): RedirectResponse
-    {
-        $request->validate([
-            'password' => ['required', 'current_password'],
-        ]);
-
         $user = $request->user();
 
-        Auth::logout();
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'username' => ['required', 'string', 'max:50', Rule::unique('users')->ignore($user->id)],
+            'bio' => 'nullable|string|max:500',
+        ]);
 
-        $user->delete();
+        $user->update($validated);
 
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        return back()->with('success', 'اطلاعات پروفایل با موفقیت بروزرسانی شد.');
+    }
 
-        return Redirect::to('/');
+    public function updatePassword(Request $request)
+    {
+        $validated = $request->validate([
+            'current_password' => 'required|current_password',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $request->user()->update([
+            'password' => Hash::make($validated['password']),
+        ]);
+
+        return back()->with('success', 'رمز عبور با موفقیت تغییر یافت.');
+    }
+
+    public function uploadAvatar(Request $request)
+    {
+        $request->validate([
+            'avatar' => 'required|image|mimes:jpeg,png,jpg,webp|max:4096',
+        ]);
+
+        $path = $request->file('avatar')->store('avatars', 'public');
+
+        $avatar = $request->user()->avatars()->create([
+            'path' => $path
+        ]);
+
+        return back()->with('success', 'تصویر پروفایل آپلود شد.');
+    }
+
+    public function deleteAvatar(UserAvatar $avatar)
+    {
+        if ($avatar->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        Storage::disk('public')->delete($avatar->path);
+        $avatar->delete();
+
+        return back()->with('success', 'تصویر پروفایل حذف شد.');
     }
 }
